@@ -3,16 +3,16 @@ spring:
     name: book-farm-villa-backend
 
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/bookfarmvilla}
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:postgres}
+    url: jdbc:postgresql://ep-falling-violet-azjoshm1-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
+    username: neondb_owner
+    password: npg_nGSZ0DvrIm2g
     driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
-      ddl-auto: validate   # schema is owned by Flyway migrations, not Hibernate
+      ddl-auto: validate
     show-sql: false
-    open-in-view: true
+    open-in-view: false
     properties:
       hibernate:
         format_sql: true
@@ -23,14 +23,16 @@ spring:
     baseline-on-migrate: true
 
 server:
-  port: ${PORT:8080}
+  port: 8080
 
 app:
   jwt:
     secret: ${JWT_SECRET:this-is-a-dev-only-secret-change-me-in-production-min-32-chars}
-    expiration-ms: ${JWT_EXPIRATION_MS:86400000}   # 24 hours
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+
   seed-admin:
     email: ${SEED_ADMIN_EMAIL:admin@bookfarmvilla.com}
     password: ${SEED_ADMIN_PASSWORD:ChangeMe123!}
@@ -52,5 +54,5 @@ management:
 ai:
   provider: ${AI_PROVIDER:gemini}
   gemini:
-    api-key: ${GEMINI_API_KEY:}
+    api-key: ${GEMINI_API_KEY:AQ.Ab8RN6J8y6vffa9tXAyO64aNGmcnueVzYz91yECwFFUJ_FGbsQ}
     model: ${GEMINI_MODEL:gemini-3.5-flash-lite}
