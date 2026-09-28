@@ -50,13 +50,14 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                         // Allow browser CORS preflight requests
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                         // Public AI assistant used by website visitors
+                        .requestMatchers(HttpMethod.POST, "/api/ai/chat").permitAll()
                         // Public - auth
                         .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
                         // Public - browsing listings
                         .requestMatchers(HttpMethod.GET, "/api/properties/**", "/api/vendors/**", "/api/amenities/**").permitAll()
-                        // Public AI assistant used by website visitors
-//                        .requestMatchers(HttpMethod.POST, "/api/ai/chat").permitAll()
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         // Public - submitting a lead (call-me-back form) and reading reviews
                         .requestMatchers(HttpMethod.POST, "/api/leads").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/reviews/**").permitAll()
