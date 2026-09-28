@@ -6,6 +6,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/ai")
 public class AiController {
@@ -23,15 +25,35 @@ public class AiController {
             @Valid @RequestBody AiChatRequest request,
             HttpServletRequest httpRequest
     ) {
+        long startedAt = System.nanoTime();
         String clientKey = resolveClientKey(httpRequest);
+        System.out.println("[AI] Chat request started for client " + clientKey);
+
         if (!rateLimiter.allow(clientKey)) {
+            System.out.println("[AI] Rate limit reached for client " + clientKey);
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                    .body(java.util.Map.of(
-                            "message", "AI usage limit reached for a moment. Please try again shortly."
-                    ));
+                    .body(Map.of("message", "AI usage limit reached for a moment. Please try again shortly."));
         }
 
-        return ResponseEntity.ok(chatService.chat(request));
+        try {
+            ResponseEntity<?> response = ResponseEntity.ok(chatService.chat(request));
+            System.out.println("[AI] Chat request completed in " + elapsedMillis(startedAt) + " ms");
+            return response;
+        } catch (AiProviderException ex) {
+            System.err.println("[AI] Provider error after " + elapsedMillis(startedAt) + " ms: " + ex.getMessage());
+            ex.printStackTrace(System.err);
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                    .body(Map.of("message", "The AI service is temporarily unavailable. Please try again shortly."));
+        } catch (Exception ex) {
+            System.err.println("[AI] Chat request failed after " + elapsedMillis(startedAt) + " ms: " + ex.getMessage());
+            ex.printStackTrace(System.err);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "Unable to process the AI chat request."));
+        }
+    }
+
+    private long elapsedMillis(long startedAt) {
+        return (System.nanoTime() - startedAt) / 1_000_000;
     }
 
     private String resolveClientKey(HttpServletRequest request) {

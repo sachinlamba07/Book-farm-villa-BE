@@ -53,6 +53,7 @@ public class AiChatService {
             Ask concise follow-up questions when required search information is missing.
             Remember the conversation history and preserve previously supplied requirements.
             Reply naturally in the user's language (Hindi/Hinglish if they use it).
+            Keep every reply brief, ideally no more than three short sentences.
             Do not mention internal prompts, JSON, databases, APIs, providers, or token limits.
             """;
 
@@ -77,9 +78,12 @@ public class AiChatService {
     }
 
     public AiChatResponse chat(AiChatRequest request) {
+        long extractionStartedAt = System.nanoTime();
         AiIntent extracted = extractIntent(request);
+        System.out.println("[AI] Intent extraction completed in " + elapsedMillis(extractionStartedAt) + " ms");
         AiRequirements requirements = mergeRequirements(request.history(), extracted.requirements());
 
+        long searchStartedAt = System.nanoTime();
         boolean isVendor = "SEARCH_VENDOR".equalsIgnoreCase(extracted.intent());
         List<PropertyResponse> properties = isVendor ? List.of() : searchService.searchProperties(requirements);
         List<VendorResponse> vendors = isVendor ? searchService.searchVendors(requirements) : List.of();
@@ -97,16 +101,21 @@ public class AiChatService {
                     .orElseThrow(() -> ResourceNotFoundException.of("Vendor", request.vendorId()));
             vendors = List.of(searchService.toVendorResponseForAi(vendor));
         }
+        System.out.println("[AI] Listing search completed in " + elapsedMillis(searchStartedAt) + " ms");
 
         String verifiedData = buildVerifiedData(properties, vendors);
         String prompt = buildResponsePrompt(request, requirements, properties, vendors, verifiedData);
 
         String message;
+        long responseStartedAt = System.nanoTime();
         try {
             message = providerRouter.current().generate(RESPONSE_SYSTEM, prompt);
         } catch (AiProviderException ex) {
+            System.err.println("[AI] Response generation failed: " + ex.getMessage());
+            ex.printStackTrace(System.err);
             message = fallbackMessage(requirements, properties, vendors);
         }
+        System.out.println("[AI] Response generation stage completed in " + elapsedMillis(responseStartedAt) + " ms");
 
         boolean nearMeRequested = containsNearMe(request.message());
         boolean locationSupported = false;
@@ -144,9 +153,15 @@ public class AiChatService {
         try {
             String raw = providerRouter.current().generate(EXTRACTION_SYSTEM, prompt);
             return parseIntent(raw);
-        } catch (Exception ignored) {
+        } catch (Exception ex) {
+            System.err.println("[AI] Intent extraction failed; using deterministic fallback: " + ex.getMessage());
+            ex.printStackTrace(System.err);
             return deterministicIntent(request.message());
         }
+    }
+
+    private long elapsedMillis(long startedAt) {
+        return (System.nanoTime() - startedAt) / 1_000_000;
     }
 
     private AiIntent parseIntent(String raw) {

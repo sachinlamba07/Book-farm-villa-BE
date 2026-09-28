@@ -164,5 +164,5 @@ src/main/java/com/bookfarmvilla/
 
 - Deploy as a standalone container (Render, Railway, Fly.io) — the `Dockerfile` here builds a runnable jar image.
 - Point `DB_URL`/`DB_USERNAME`/`DB_PASSWORD` at a managed Postgres instance (Neon, Supabase, Railway).
-- Set `CORS_ALLOWED_ORIGINS` to your deployed frontend's URL(s), comma-separated if more than one.
+- Set `CORS_ALLOWED_ORIGINS` to your deployed frontend's URL(s), comma-separated if more than one. To call the API from local development, also include `http://localhost:3000` or `http://localhost:5173`, whichever port the frontend uses.
 - Always override `JWT_SECRET` and `SEED_ADMIN_PASSWORD` in production — the defaults are for local dev only.
