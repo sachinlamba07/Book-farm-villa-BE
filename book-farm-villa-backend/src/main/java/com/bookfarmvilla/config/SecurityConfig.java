@@ -55,7 +55,8 @@ public class SecurityConfig {
                         // Public - browsing listings
                         .requestMatchers(HttpMethod.GET, "/api/properties/**", "/api/vendors/**", "/api/amenities/**").permitAll()
                         // Public AI assistant used by website visitors
-                        .requestMatchers(HttpMethod.POST, "/api/ai/chat").permitAll()
+//                        .requestMatchers(HttpMethod.POST, "/api/ai/chat").permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         // Public - submitting a lead (call-me-back form) and reading reviews
                         .requestMatchers(HttpMethod.POST, "/api/leads").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/reviews/**").permitAll()
