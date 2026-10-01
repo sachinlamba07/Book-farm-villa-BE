@@ -7,6 +7,8 @@ import com.bookfarmvilla.dto.response.PageResponse;
 import com.bookfarmvilla.entity.enums.LeadStatus;
 import com.bookfarmvilla.service.LeadService;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
@@ -25,6 +27,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/leads")
 public class LeadController {
 
+    private static final Logger log = LoggerFactory.getLogger(LeadController.class);
+
     private final LeadService leadService;
 
     public LeadController(LeadService leadService) {
@@ -34,7 +38,11 @@ public class LeadController {
     /** Public "Request a Callback" submission - no auth required. */
     @PostMapping
     public ResponseEntity<LeadResponse> create(@Valid @RequestBody LeadRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(leadService.create(request));
+        log.info("POST /api/leads - new callback request propertyId={}, vendorId={}",
+                request.propertyId(), request.vendorId());
+        LeadResponse created = leadService.create(request);
+        log.info("POST /api/leads - created lead id={}", created.id());
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     @GetMapping
@@ -43,12 +51,16 @@ public class LeadController {
             @RequestParam(required = false) LeadStatus status,
             @PageableDefault(size = 20) Pageable pageable
     ) {
+        log.info("GET /api/leads - status={}, page={}, size={}", status, pageable.getPageNumber(), pageable.getPageSize());
         return ResponseEntity.ok(leadService.findAll(status, pageable));
     }
 
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
     public ResponseEntity<LeadResponse> updateStatus(@PathVariable String id, @Valid @RequestBody LeadStatusUpdateRequest request) {
-        return ResponseEntity.ok(leadService.updateStatus(id, request.status()));
+        log.info("PATCH /api/leads/{}/status - newStatus={}", id, request.status());
+        LeadResponse updated = leadService.updateStatus(id, request.status());
+        log.info("PATCH /api/leads/{}/status - updated", id);
+        return ResponseEntity.ok(updated);
     }
 }

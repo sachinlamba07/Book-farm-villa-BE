@@ -7,6 +7,8 @@ import com.bookfarmvilla.entity.enums.ListingStatus;
 import com.bookfarmvilla.entity.enums.VendorCategory;
 import com.bookfarmvilla.service.VendorService;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
@@ -26,6 +28,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/vendors")
 public class VendorController {
 
+    private static final Logger log = LoggerFactory.getLogger(VendorController.class);
+
     private final VendorService vendorService;
 
     public VendorController(VendorService vendorService) {
@@ -40,30 +44,43 @@ public class VendorController {
             @RequestParam(required = false) String keyword,
             @PageableDefault(size = 20) Pageable pageable
     ) {
-        return ResponseEntity.ok(vendorService.search(city, category, status, keyword, pageable));
+        log.info("GET /api/vendors - city={}, category={}, status={}, keyword={}, page={}, size={}",
+                city, category, status, keyword, pageable.getPageNumber(), pageable.getPageSize());
+        PageResponse<VendorResponse> result = vendorService.search(city, category, status, keyword, pageable);
+        log.info("GET /api/vendors - search completed");
+        return ResponseEntity.ok(result);
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<VendorResponse> getById(@PathVariable String id) {
+        log.info("GET /api/vendors/{}", id);
         return ResponseEntity.ok(vendorService.findById(id));
     }
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
     public ResponseEntity<VendorResponse> create(@Valid @RequestBody VendorRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(vendorService.create(request));
+        log.info("POST /api/vendors - creating vendor");
+        VendorResponse created = vendorService.create(request);
+        log.info("POST /api/vendors - created vendor id={}", created.id());
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
     public ResponseEntity<VendorResponse> update(@PathVariable String id, @Valid @RequestBody VendorRequest request) {
-        return ResponseEntity.ok(vendorService.update(id, request));
+        log.info("PUT /api/vendors/{} - updating vendor", id);
+        VendorResponse updated = vendorService.update(id, request);
+        log.info("PUT /api/vendors/{} - updated", id);
+        return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> delete(@PathVariable String id) {
+        log.info("DELETE /api/vendors/{}", id);
         vendorService.delete(id);
+        log.info("DELETE /api/vendors/{} - deleted", id);
         return ResponseEntity.noContent().build();
     }
 }

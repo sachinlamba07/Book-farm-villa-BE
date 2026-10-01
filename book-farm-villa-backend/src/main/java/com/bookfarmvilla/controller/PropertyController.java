@@ -7,6 +7,8 @@ import com.bookfarmvilla.entity.enums.ListingStatus;
 import com.bookfarmvilla.entity.enums.PropertyType;
 import com.bookfarmvilla.service.PropertyService;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
@@ -26,6 +28,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/properties")
 public class PropertyController {
 
+    private static final Logger log = LoggerFactory.getLogger(PropertyController.class);
+
     private final PropertyService propertyService;
 
     public PropertyController(PropertyService propertyService) {
@@ -41,30 +45,43 @@ public class PropertyController {
             @RequestParam(required = false) String keyword,
             @PageableDefault(size = 20) Pageable pageable
     ) {
-        return ResponseEntity.ok(propertyService.search(city, type, status, minCapacity, keyword, pageable));
+        log.info("GET /api/properties - city={}, type={}, status={}, minCapacity={}, keyword={}, page={}, size={}",
+                city, type, status, minCapacity, keyword, pageable.getPageNumber(), pageable.getPageSize());
+        PageResponse<PropertyResponse> result = propertyService.search(city, type, status, minCapacity, keyword, pageable);
+        log.info("GET /api/properties - search completed");
+        return ResponseEntity.ok(result);
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<PropertyResponse> getById(@PathVariable String id) {
+        log.info("GET /api/properties/{}", id);
         return ResponseEntity.ok(propertyService.findById(id));
     }
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
     public ResponseEntity<PropertyResponse> create(@Valid @RequestBody PropertyRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(propertyService.create(request));
+        log.info("POST /api/properties - creating property");
+        PropertyResponse created = propertyService.create(request);
+        log.info("POST /api/properties - created property id={}", created.id());
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
     public ResponseEntity<PropertyResponse> update(@PathVariable String id, @Valid @RequestBody PropertyRequest request) {
-        return ResponseEntity.ok(propertyService.update(id, request));
+        log.info("PUT /api/properties/{} - updating property", id);
+        PropertyResponse updated = propertyService.update(id, request);
+        log.info("PUT /api/properties/{} - updated", id);
+        return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> delete(@PathVariable String id) {
+        log.info("DELETE /api/properties/{}", id);
         propertyService.delete(id);
+        log.info("DELETE /api/properties/{} - deleted", id);
         return ResponseEntity.noContent().build();
     }
 }
