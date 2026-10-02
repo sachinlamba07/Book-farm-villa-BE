@@ -225,7 +225,7 @@ public class AiChatService {
         List<Object> safe = new ArrayList<>();
         safe.addAll(properties.stream().map(p -> new VerifiedProperty(
                 p.id(), p.title(), p.city(), p.type() == null ? null : p.type().name(),
-                p.priceRange(), p.capacity(), p.amenities(), p.averageRating(),
+                formatPriceRange(p.startingPrice(), p.endingPrice()), p.capacity(), p.amenities(), p.averageRating(),
                 p.address(), p.contactPhone(), p.images().stream().findFirst().map(i -> i.url()).orElse(null)
         )).toList());
         safe.addAll(vendors.stream().map(v -> new VerifiedVendor(
@@ -234,6 +234,17 @@ public class AiChatService {
                 v.images().stream().findFirst().map(i -> i.url()).orElse(null)
         )).toList());
         return toJson(safe);
+    }
+
+    /** Properties now store startingPrice/endingPrice separately (see PropertyResponse); format them
+     *  back into a single display string here since that's what the AI prompt/response shape expects. */
+    private String formatPriceRange(java.math.BigDecimal startingPrice, java.math.BigDecimal endingPrice) {
+        if (startingPrice == null && endingPrice == null) return null;
+        if (startingPrice != null && endingPrice != null) {
+            return "₹" + startingPrice.toPlainString() + " - ₹" + endingPrice.toPlainString();
+        }
+        java.math.BigDecimal only = startingPrice != null ? startingPrice : endingPrice;
+        return "₹" + only.toPlainString();
     }
 
     private String toJson(Object value) {

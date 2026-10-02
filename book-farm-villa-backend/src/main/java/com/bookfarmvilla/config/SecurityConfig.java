@@ -60,6 +60,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/properties/**", "/api/vendors/**", "/api/amenities/**").permitAll()
                         // Public - submitting a lead (call-me-back form) and reading reviews
                         .requestMatchers(HttpMethod.POST, "/api/leads").permitAll()
+                        // Public - submitting a "partner with us" business enquiry
+                        .requestMatchers(HttpMethod.POST, "/api/partners").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/reviews/**").permitAll()
                         // Docs
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()

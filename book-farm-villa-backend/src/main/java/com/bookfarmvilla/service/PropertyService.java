@@ -86,7 +86,10 @@ public class PropertyService {
         property.setType(request.type());
         property.setAddress(request.address());
         property.setCity(request.city());
-        property.setPriceRange(request.priceRange());
+        property.setLatitude(request.latitude());
+        property.setLongitude(request.longitude());
+        property.setStartingPrice(request.startingPrice());
+        property.setEndingPrice(request.endingPrice());
         property.setCapacity(request.capacity());
         property.setContactPhone(request.contactPhone());
         property.setStatus(request.status() != null ? request.status() : ListingStatus.ACTIVE);
@@ -132,7 +135,8 @@ public class PropertyService {
 
         return new PropertyResponse(
                 p.getId(), p.getTitle(), p.getDescription(), p.getType(), p.getAddress(), p.getCity(),
-                p.getPriceRange(), p.getCapacity(), p.getContactPhone(), p.getStatus(),
+                p.getLatitude(), p.getLongitude(), p.getStartingPrice(), p.getEndingPrice(),
+                p.getCapacity(), p.getContactPhone(), p.getStatus(),
                 amenityNames, images, avgRating, p.getCreatedAt(), p.getModifiedAt()
         );
     }

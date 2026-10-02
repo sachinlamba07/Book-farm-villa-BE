@@ -40,6 +40,9 @@ public class Lead extends BaseEntity {
     @Column(nullable = false)
     private String phone;
 
+    /** Optional - the "Request a Callback" form does not require it. */
+    private String email;
+
     @Column(name = "preferred_date")
     private LocalDate preferredDate;
 

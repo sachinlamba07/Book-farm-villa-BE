@@ -13,6 +13,7 @@ public record LeadResponse(
         String vendorName,
         String name,
         String phone,
+        String email,
         LocalDate preferredDate,
         String eventType,
         String message,

@@ -1,5 +1,6 @@
 package com.bookfarmvilla.dto.request;
 
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
 import java.time.LocalDate;
@@ -18,6 +19,9 @@ public record LeadRequest(
 
         @NotBlank(message = "Phone is required")
         String phone,
+
+        @Email(message = "Email must be a valid email address")
+        String email,
 
         LocalDate preferredDate,
         String eventType,

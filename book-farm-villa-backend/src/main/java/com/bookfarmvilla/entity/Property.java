@@ -45,9 +45,16 @@ public class Property extends BaseEntity {
     @Column(nullable = false)
     private String city;
 
-    /** Free-text display range, e.g. "₹40,000 - ₹60,000 / day". Kept as text since pricing varies by season/event. */
-    @Column(name = "price_range")
-    private String priceRange;
+    /** Exact coordinates for the property, used to plot it on a map. Both optional. */
+    private Double latitude;
+
+    private Double longitude;
+
+    @Column(name = "starting_price", precision = 12, scale = 2)
+    private java.math.BigDecimal startingPrice;
+
+    @Column(name = "ending_price", precision = 12, scale = 2)
+    private java.math.BigDecimal endingPrice;
 
     private Integer capacity;
 

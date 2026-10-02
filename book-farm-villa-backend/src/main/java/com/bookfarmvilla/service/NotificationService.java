@@ -28,4 +28,11 @@ public class NotificationService {
         // TODO: plug in email (Resend/SendGrid) and/or SMS/WhatsApp (Twilio) here.
         // e.g. emailClient.send(teamInbox, "New lead: " + target, buildLeadEmailBody(lead));
     }
+
+    public void notifyNewPartner(com.bookfarmvilla.entity.Partner partner) {
+        log.info("New partner request received — business: '{}', type: {}, city: {}, contact: {}",
+                partner.getBusinessName(), partner.getBusinessType(), partner.getCity(), partner.getPhoneNumber());
+
+        // TODO: plug in email (Resend/SendGrid) and/or SMS/WhatsApp (Twilio) here, same as notifyNewLead.
+    }
 }

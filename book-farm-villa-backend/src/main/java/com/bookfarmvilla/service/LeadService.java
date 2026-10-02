@@ -51,6 +51,7 @@ public class LeadService {
         lead.setId(request.id());
         lead.setName(request.name());
         lead.setPhone(request.phone());
+        lead.setEmail(request.email());
         lead.setPreferredDate(request.preferredDate());
         lead.setEventType(request.eventType());
         lead.setMessage(request.message());
@@ -95,6 +96,7 @@ public class LeadService {
                 lead.getVendor() != null ? lead.getVendor().getName() : null,
                 lead.getName(),
                 lead.getPhone(),
+                lead.getEmail(),
                 lead.getPreferredDate(),
                 lead.getEventType(),
                 lead.getMessage(),

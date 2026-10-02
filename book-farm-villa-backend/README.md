@@ -81,6 +81,8 @@ Base URL: `/api`
 | DELETE | `/properties/{id}` | ADMIN |
 
 `type` is one of `FARMHOUSE`, `VILLA`, `WEDDING_LAWN`. `status` is `ACTIVE` or `INACTIVE`.
+Each property also carries `latitude`/`longitude` (exact map coordinates) and
+`startingPrice`/`endingPrice` (numeric, replacing the old free-text `priceRange` field).
 
 ### Vendors
 | Method | Path | Auth |
@@ -103,9 +105,37 @@ Base URL: `/api`
 ### Leads ("Request a Callback")
 | Method | Path | Auth |
 |---|---|---|
-| POST | `/leads` | Public — body needs exactly one of `propertyId` / `vendorId` |
+| POST | `/leads` | Public — body needs exactly one of `propertyId` / `vendorId`. `email` is optional. |
 | GET | `/leads?status=&page=&size=` | ADMIN, STAFF |
 | PATCH | `/leads/{id}/status` | ADMIN, STAFF |
+
+### Bookings
+Admin-recorded booking transactions — there is no public booking submission flow,
+these are entered by the team after confirming a booking over the phone.
+
+| Method | Path | Auth |
+|---|---|---|
+| GET | `/bookings?listingType=&status=&paymentStatus=&keyword=&page=&size=` | ADMIN, STAFF |
+| GET | `/bookings/{id}` | ADMIN, STAFF |
+| POST | `/bookings` | ADMIN, STAFF |
+| PUT | `/bookings/{id}` | ADMIN, STAFF |
+| DELETE | `/bookings/{id}` | ADMIN, STAFF |
+
+`status` is one of `PENDING`, `CONFIRMED`, `CANCELLED`, `COMPLETED`.
+`paymentStatus` is one of `UNPAID`, `PAID`, `REFUNDED`.
+
+### Partners ("Partner with us")
+| Method | Path | Auth |
+|---|---|---|
+| POST | `/partners` | Public |
+| GET | `/partners?status=&page=&size=` | ADMIN, STAFF |
+| DELETE | `/partners/{id}` | ADMIN, STAFF |
+
+New requests always start at `status: PENDING`. There is intentionally no
+PUT/PATCH for partners — only create, list, and delete, per spec. `status` can
+be one of `PENDING`, `OPEN`, `ACCEPTED`, `DECLINED`, but nothing currently
+transitions it after creation; add a status-update endpoint later if the
+admin panel needs to accept/decline requests.
 
 ### Reviews
 | Method | Path | Auth |

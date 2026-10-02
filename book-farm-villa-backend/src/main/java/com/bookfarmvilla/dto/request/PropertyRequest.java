@@ -30,7 +30,15 @@ public record PropertyRequest(
         @NotBlank(message = "City is required")
         String city,
 
-        String priceRange,
+        Double latitude,
+
+        Double longitude,
+
+        @jakarta.validation.constraints.PositiveOrZero(message = "Starting price must be zero or positive")
+        java.math.BigDecimal startingPrice,
+
+        @jakarta.validation.constraints.PositiveOrZero(message = "Ending price must be zero or positive")
+        java.math.BigDecimal endingPrice,
 
         @Positive(message = "Capacity must be positive")
         Integer capacity,

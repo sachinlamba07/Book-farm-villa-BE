@@ -16,13 +16,9 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @Service
 public class AiPropertySearchService {
-
-    private static final Pattern MONEY = Pattern.compile("(\\d+(?:[.,]\\d+)?)\\s*(k|K|lakh|lac|L)?");
 
     private final PropertyRepository propertyRepository;
     private final VendorRepository vendorRepository;
@@ -65,7 +61,7 @@ public class AiPropertySearchService {
 
         if (r.budget() != null) {
             candidates = candidates.stream()
-                    .filter(p -> priceFitsBudget(p.getPriceRange(), r.budget()))
+                    .filter(p -> priceFitsBudget(p.getStartingPrice(), p.getEndingPrice(), r.budget()))
                     .toList();
         }
 
@@ -87,19 +83,13 @@ public class AiPropertySearchService {
                 .toList();
     }
 
-    private boolean priceFitsBudget(String priceRange, int budget) {
-        if (priceRange == null || priceRange.isBlank()) return true;
-        Matcher matcher = MONEY.matcher(priceRange.replace(",", ""));
-        List<Integer> values = new ArrayList<>();
-        while (matcher.find()) {
-            double number = Double.parseDouble(matcher.group(1));
-            String suffix = matcher.group(2);
-            if (suffix != null && suffix.equalsIgnoreCase("k")) number *= 1000;
-            if (suffix != null && (suffix.equalsIgnoreCase("lakh") || suffix.equalsIgnoreCase("lac"))) number *= 100000;
-            values.add((int) number);
-        }
-        if (values.isEmpty()) return true;
-        return Collections.max(values) <= budget;
+    /** Properties now store numeric startingPrice/endingPrice directly, so budget matching
+     *  is a plain numeric comparison - no more parsing free-text price strings. A property
+     *  with no price set at all is treated as fitting any budget (nothing to rule it out on). */
+    private boolean priceFitsBudget(java.math.BigDecimal startingPrice, java.math.BigDecimal endingPrice, int budget) {
+        java.math.BigDecimal relevantPrice = endingPrice != null ? endingPrice : startingPrice;
+        if (relevantPrice == null) return true;
+        return relevantPrice.compareTo(java.math.BigDecimal.valueOf(budget)) <= 0;
     }
 
     private PropertyType parsePropertyType(String value) {
@@ -172,7 +162,8 @@ public class AiPropertySearchService {
 
         return new PropertyResponse(
                 p.getId(), p.getTitle(), p.getDescription(), p.getType(), p.getAddress(), p.getCity(),
-                p.getPriceRange(), p.getCapacity(), p.getContactPhone(), p.getStatus(), amenities,
+                p.getLatitude(), p.getLongitude(), p.getStartingPrice(), p.getEndingPrice(),
+                p.getCapacity(), p.getContactPhone(), p.getStatus(), amenities,
                 images, rating, p.getCreatedAt(), p.getModifiedAt()
         );
     }
