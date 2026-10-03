@@ -51,6 +51,15 @@ public class Booking extends BaseEntity {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;
 
+    @Column(name = "advance_amount", nullable = false, precision = 12, scale = 2)
+    private BigDecimal advanceAmount = BigDecimal.ZERO;
+
+    @Column(name = "commission_percentage", nullable = false, precision = 5, scale = 2)
+    private BigDecimal commissionPercentage = BigDecimal.ZERO;
+
+    @Column(name = "commission_amount", nullable = false, precision = 12, scale = 2)
+    private BigDecimal commissionAmount = BigDecimal.ZERO;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private BookingStatus status = BookingStatus.PENDING;

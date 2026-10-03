@@ -3,6 +3,7 @@ package com.bookfarmvilla.dto.request;
 import com.bookfarmvilla.entity.enums.BookingStatus;
 import com.bookfarmvilla.entity.enums.PaymentStatus;
 import com.bookfarmvilla.entity.enums.PropertyType;
+import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
@@ -30,6 +31,16 @@ public record BookingRequest(
         @NotNull(message = "Amount is required")
         @PositiveOrZero(message = "Amount must be zero or positive")
         BigDecimal amount,
+
+        @PositiveOrZero(message = "Advance amount must be zero or positive")
+        BigDecimal advanceAmount,
+
+        @PositiveOrZero(message = "Commission percentage must be zero or positive")
+        @DecimalMax(value = "100.00", message = "Commission percentage must not exceed 100")
+        BigDecimal commissionPercentage,
+
+        @PositiveOrZero(message = "Commission amount must be zero or positive")
+        BigDecimal commissionAmount,
 
         BookingStatus status,
 

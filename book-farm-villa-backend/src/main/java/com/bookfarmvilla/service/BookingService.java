@@ -20,6 +20,8 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+
 @Service
 public class BookingService {
 
@@ -83,6 +85,13 @@ public class BookingService {
         booking.setListingType(request.listingType());
         booking.setBookingDate(request.bookingDate());
         booking.setAmount(request.amount());
+        booking.setAdvanceAmount(request.advanceAmount() != null ? request.advanceAmount() : BigDecimal.ZERO);
+        booking.setCommissionPercentage(request.commissionPercentage() != null
+                ? request.commissionPercentage()
+                : BigDecimal.ZERO);
+        booking.setCommissionAmount(request.commissionAmount() != null
+                ? request.commissionAmount()
+                : BigDecimal.ZERO);
         booking.setStatus(request.status() != null ? request.status() : BookingStatus.PENDING);
         booking.setPaymentStatus(request.paymentStatus() != null ? request.paymentStatus() : PaymentStatus.UNPAID);
 
@@ -110,6 +119,9 @@ public class BookingService {
                 b.getListingType(),
                 b.getBookingDate(),
                 b.getAmount(),
+                b.getAdvanceAmount(),
+                b.getCommissionPercentage(),
+                b.getCommissionAmount(),
                 b.getStatus(),
                 b.getPaymentStatus(),
                 b.getCreatedAt(),
