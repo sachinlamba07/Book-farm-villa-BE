@@ -94,11 +94,29 @@ public class PropertyService {
         property.setContactPhone(request.contactPhone());
         property.setStatus(request.status() != null ? request.status() : ListingStatus.ACTIVE);
 
-        if (request.amenityIds() != null) {
-            Set<Amenity> amenities = new HashSet<>(amenityRepository.findAllById(request.amenityIds()));
-            if (amenities.size() != request.amenityIds().size()) {
-                throw new BadRequestException("One or more amenity IDs are invalid");
+        if (request.amenityIds() != null || request.amenities() != null) {
+            Set<Amenity> amenities = new HashSet<>();
+            if (request.amenityIds() != null) {
+                Set<Amenity> amenitiesById = new HashSet<>(amenityRepository.findAllById(request.amenityIds()));
+                if (amenitiesById.size() != request.amenityIds().size()) {
+                    throw new BadRequestException("One or more amenity IDs are invalid");
+                }
+                amenities.addAll(amenitiesById);
             }
+
+            if (request.amenities() != null) {
+                for (String name : request.amenities()) {
+                    String normalizedName = name.trim();
+                    Amenity amenity = amenityRepository.findByNameIgnoreCase(normalizedName)
+                            .orElseGet(() -> {
+                                Amenity newAmenity = new Amenity();
+                                newAmenity.setName(normalizedName);
+                                return amenityRepository.save(newAmenity);
+                            });
+                    amenities.add(amenity);
+                }
+            }
+
             property.setAmenities(amenities);
         }
 

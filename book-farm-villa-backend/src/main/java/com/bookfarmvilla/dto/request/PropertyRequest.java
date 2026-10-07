@@ -5,6 +5,7 @@ import com.bookfarmvilla.entity.enums.PropertyType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 
 import java.util.List;
 import java.util.Set;
@@ -49,6 +50,9 @@ public record PropertyRequest(
         ListingStatus status,
 
         Set<String> amenityIds,
+
+        List<@NotBlank(message = "Amenity names must not be blank")
+                @Size(max = 100, message = "Amenity names must be at most 100 characters") String> amenities,
 
         List<String> imageUrls
 ) {
