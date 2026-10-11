@@ -6,6 +6,7 @@ import com.bookfarmvilla.dto.response.VendorResponse;
 import com.bookfarmvilla.entity.enums.ListingStatus;
 import com.bookfarmvilla.entity.enums.VendorCategory;
 import com.bookfarmvilla.service.VendorService;
+import com.bookfarmvilla.util.ListSort;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,11 +25,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Set;
+
 @RestController
 @RequestMapping("/api/vendors")
 public class VendorController {
 
     private static final Logger log = LoggerFactory.getLogger(VendorController.class);
+    private static final Set<String> SORT_FIELDS = Set.of("name", "city", "status", "createdAt");
 
     private final VendorService vendorService;
 
@@ -42,11 +46,15 @@ public class VendorController {
             @RequestParam(required = false) VendorCategory category,
             @RequestParam(required = false) ListingStatus status,
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String sortDirection,
             @PageableDefault(size = 20) Pageable pageable
     ) {
-        log.info("GET /api/vendors - city={}, category={}, status={}, keyword={}, page={}, size={}",
-                city, category, status, keyword, pageable.getPageNumber(), pageable.getPageSize());
-        PageResponse<VendorResponse> result = vendorService.search(city, category, status, keyword, pageable);
+        Pageable sortedPageable = ListSort.apply(pageable, sortBy, sortDirection, SORT_FIELDS);
+        log.info("GET /api/vendors - city={}, category={}, status={}, keyword={}, sortBy={}, sortDirection={}, page={}, size={}",
+                city, category, status, keyword, sortBy, sortDirection,
+                sortedPageable.getPageNumber(), sortedPageable.getPageSize());
+        PageResponse<VendorResponse> result = vendorService.search(city, category, status, keyword, sortedPageable);
         log.info("GET /api/vendors - search completed");
         return ResponseEntity.ok(result);
     }

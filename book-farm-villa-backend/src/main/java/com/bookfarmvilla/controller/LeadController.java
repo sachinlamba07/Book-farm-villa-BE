@@ -6,6 +6,7 @@ import com.bookfarmvilla.dto.response.LeadResponse;
 import com.bookfarmvilla.dto.response.PageResponse;
 import com.bookfarmvilla.entity.enums.LeadStatus;
 import com.bookfarmvilla.service.LeadService;
+import com.bookfarmvilla.util.ListSort;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,11 +24,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Set;
+
 @RestController
 @RequestMapping("/api/leads")
 public class LeadController {
 
     private static final Logger log = LoggerFactory.getLogger(LeadController.class);
+    private static final Set<String> SORT_FIELDS = Set.of("name", "createdAt", "status");
 
     private final LeadService leadService;
 
@@ -49,10 +53,14 @@ public class LeadController {
     @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
     public ResponseEntity<PageResponse<LeadResponse>> findAll(
             @RequestParam(required = false) LeadStatus status,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String sortDirection,
             @PageableDefault(size = 20) Pageable pageable
     ) {
-        log.info("GET /api/leads - status={}, page={}, size={}", status, pageable.getPageNumber(), pageable.getPageSize());
-        return ResponseEntity.ok(leadService.findAll(status, pageable));
+        Pageable sortedPageable = ListSort.apply(pageable, sortBy, sortDirection, SORT_FIELDS);
+        log.info("GET /api/leads - status={}, sortBy={}, sortDirection={}, page={}, size={}",
+                status, sortBy, sortDirection, sortedPageable.getPageNumber(), sortedPageable.getPageSize());
+        return ResponseEntity.ok(leadService.findAll(status, sortedPageable));
     }
 
     @PatchMapping("/{id}/status")

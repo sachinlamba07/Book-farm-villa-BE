@@ -76,7 +76,7 @@ Base URL: `/api`
 |---|---|---|
 | GET | `/properties?city=&type=&status=&minCapacity=&keyword=&page=&size=` | Public |
 | GET | `/properties/{id}` | Public |
-| GET | `/v2/properties?city=&type=&status=&minCapacity=&keyword=&page=&size=` | Public — includes `originalPropertyName` |
+| GET | `/v2/properties?city=&type=&status=&minCapacity=&keyword=&sortBy=&sortDirection=&page=&size=` | Public — includes `originalPropertyName` |
 | GET | `/v2/properties/{id}` | Public — includes `originalPropertyName` |
 | POST | `/properties` | ADMIN, STAFF |
 | PUT | `/properties/{id}` | ADMIN, STAFF |
@@ -88,17 +88,20 @@ Each property also carries `latitude`/`longitude` (exact map coordinates) and
 Property create/update requests can include `originalPropertyName`; property v2 GET endpoints
 return that value. Lead GET responses also include the referenced property's
 `originalPropertyName` when the lead belongs to a property.
+The v2 property list supports optional sorting by `title`, `city`, `startingPrice`,
+`capacity`, `status`, or `createdAt`.
 
 ### Vendors
 | Method | Path | Auth |
 |---|---|---|
-| GET | `/vendors?city=&category=&status=&keyword=&page=&size=` | Public |
+| GET | `/vendors?city=&category=&status=&keyword=&sortBy=&sortDirection=&page=&size=` | Public |
 | GET | `/vendors/{id}` | Public |
 | POST | `/vendors` | ADMIN, STAFF |
 | PUT | `/vendors/{id}` | ADMIN, STAFF |
 | DELETE | `/vendors/{id}` | ADMIN |
 
 `category` is one of `CATERER`, `DECORATOR`, `PHOTOGRAPHER`, `MAKEUP_ARTIST`, `DJ`, `OTHER`.
+The vendor list supports optional sorting by `name`, `city`, `status`, or `createdAt`.
 
 ### Amenities
 | Method | Path | Auth |
@@ -111,8 +114,14 @@ return that value. Lead GET responses also include the referenced property's
 | Method | Path | Auth |
 |---|---|---|
 | POST | `/leads` | Public — body needs exactly one of `propertyId` / `vendorId`. `email` is optional. |
-| GET | `/leads?status=&page=&size=` | ADMIN, STAFF |
+| GET | `/leads?status=&sortBy=&sortDirection=&page=&size=` | ADMIN, STAFF |
 | PATCH | `/leads/{id}/status` | ADMIN, STAFF |
+The lead list supports optional sorting by `name`, `createdAt`, or `status`.
+
+For the supported list sorting parameters, `sortDirection` accepts `asc` or `desc`
+and defaults to `asc` when `sortBy` is supplied. Null values sort last, with `id`
+providing a stable tie-breaker. If `sortBy` is omitted, the existing ordering is
+unchanged.
 
 ### Bookings
 Admin-recorded booking transactions — there is no public booking submission flow,

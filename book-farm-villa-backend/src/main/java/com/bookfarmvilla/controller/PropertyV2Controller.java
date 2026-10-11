@@ -5,6 +5,7 @@ import com.bookfarmvilla.dto.response.PropertyV2Response;
 import com.bookfarmvilla.entity.enums.ListingStatus;
 import com.bookfarmvilla.entity.enums.PropertyType;
 import com.bookfarmvilla.service.PropertyService;
+import com.bookfarmvilla.util.ListSort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Pageable;
@@ -16,11 +17,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Set;
+
 @RestController
 @RequestMapping("/api/v2/properties")
 public class PropertyV2Controller {
 
     private static final Logger log = LoggerFactory.getLogger(PropertyV2Controller.class);
+    private static final Set<String> SORT_FIELDS = Set.of("title", "city", "startingPrice", "capacity", "status", "createdAt");
 
     private final PropertyService propertyService;
 
@@ -35,11 +39,15 @@ public class PropertyV2Controller {
             @RequestParam(required = false) ListingStatus status,
             @RequestParam(required = false) Integer minCapacity,
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String sortDirection,
             @PageableDefault(size = 20) Pageable pageable
     ) {
-        log.info("GET /api/v2/properties - city={}, type={}, status={}, minCapacity={}, keyword={}, page={}, size={}",
-                city, type, status, minCapacity, keyword, pageable.getPageNumber(), pageable.getPageSize());
-        return ResponseEntity.ok(propertyService.searchV2(city, type, status, minCapacity, keyword, pageable));
+        Pageable sortedPageable = ListSort.apply(pageable, sortBy, sortDirection, SORT_FIELDS);
+        log.info("GET /api/v2/properties - city={}, type={}, status={}, minCapacity={}, keyword={}, sortBy={}, sortDirection={}, page={}, size={}",
+                city, type, status, minCapacity, keyword, sortBy, sortDirection,
+                sortedPageable.getPageNumber(), sortedPageable.getPageSize());
+        return ResponseEntity.ok(propertyService.searchV2(city, type, status, minCapacity, keyword, sortedPageable));
     }
 
     @GetMapping("/{id}")
