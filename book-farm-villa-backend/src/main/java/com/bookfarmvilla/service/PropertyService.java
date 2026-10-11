@@ -174,7 +174,7 @@ public class PropertyService {
         return new PropertyResponse(
                 p.getId(), p.getTitle(), p.getDescription(), p.getType(), p.getAddress(), p.getCity(),
                 p.getLatitude(), p.getLongitude(), p.getStartingPrice(), p.getEndingPrice(),
-                p.getCapacity(), "", p.getStatus(),
+                p.getCapacity(), p.getContactPhone(), p.getStatus(),
                 amenityNames, images, avgRating, p.getCreatedAt(), p.getModifiedAt()
         );
     }
