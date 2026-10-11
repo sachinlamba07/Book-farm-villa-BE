@@ -76,6 +76,8 @@ Base URL: `/api`
 |---|---|---|
 | GET | `/properties?city=&type=&status=&minCapacity=&keyword=&page=&size=` | Public |
 | GET | `/properties/{id}` | Public |
+| GET | `/v2/properties?city=&type=&status=&minCapacity=&keyword=&page=&size=` | Public — includes `originalPropertyName` |
+| GET | `/v2/properties/{id}` | Public — includes `originalPropertyName` |
 | POST | `/properties` | ADMIN, STAFF |
 | PUT | `/properties/{id}` | ADMIN, STAFF |
 | DELETE | `/properties/{id}` | ADMIN |
@@ -83,6 +85,9 @@ Base URL: `/api`
 `type` is one of `FARMHOUSE`, `VILLA`, `WEDDING_LAWN`. `status` is `ACTIVE` or `INACTIVE`.
 Each property also carries `latitude`/`longitude` (exact map coordinates) and
 `startingPrice`/`endingPrice` (numeric, replacing the old free-text `priceRange` field).
+Property create/update requests can include `originalPropertyName`; property v2 GET endpoints
+return that value. Lead GET responses also include the referenced property's
+`originalPropertyName` when the lead belongs to a property.
 
 ### Vendors
 | Method | Path | Auth |

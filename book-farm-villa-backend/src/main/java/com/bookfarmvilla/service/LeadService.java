@@ -92,6 +92,7 @@ public class LeadService {
                 lead.getId(),
                 lead.getProperty() != null ? lead.getProperty().getId() : null,
                 lead.getProperty() != null ? lead.getProperty().getTitle() : null,
+                lead.getProperty() != null ? lead.getProperty().getOriginalPropertyName() : null,
                 lead.getVendor() != null ? lead.getVendor().getId() : null,
                 lead.getVendor() != null ? lead.getVendor().getName() : null,
                 lead.getName(),

@@ -9,6 +9,7 @@ public record LeadResponse(
         String id,
         String propertyId,
         String propertyTitle,
+        String originalPropertyName,
         String vendorId,
         String vendorName,
         String name,

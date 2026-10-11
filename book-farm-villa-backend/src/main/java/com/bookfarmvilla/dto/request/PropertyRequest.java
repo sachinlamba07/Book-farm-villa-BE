@@ -21,6 +21,8 @@ public record PropertyRequest(
         @NotBlank(message = "Title is required")
         String title,
 
+        String originalPropertyName,
+
         String description,
 
         @NotNull(message = "Property type is required")

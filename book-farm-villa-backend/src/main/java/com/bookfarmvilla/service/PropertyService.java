@@ -4,6 +4,7 @@ import com.bookfarmvilla.dto.request.PropertyRequest;
 import com.bookfarmvilla.dto.response.PageResponse;
 import com.bookfarmvilla.dto.response.PropertyImageResponse;
 import com.bookfarmvilla.dto.response.PropertyResponse;
+import com.bookfarmvilla.dto.response.PropertyV2Response;
 import com.bookfarmvilla.entity.Amenity;
 import com.bookfarmvilla.entity.Property;
 import com.bookfarmvilla.entity.PropertyImage;
@@ -52,9 +53,27 @@ public class PropertyService {
         return PageResponse.from(page.map(this::toResponse));
     }
 
+    public PageResponse<PropertyV2Response> searchV2(
+            String city, PropertyType type, ListingStatus status, Integer minCapacity, String keyword, Pageable pageable
+    ) {
+        Specification<Property> spec = Specification.where(PropertySpecifications.hasCity(city))
+                .and(PropertySpecifications.hasType(type))
+                .and(PropertySpecifications.hasStatus(status))
+                .and(PropertySpecifications.minCapacity(minCapacity))
+                .and(PropertySpecifications.titleContains(keyword));
+
+        Page<Property> page = propertyRepository.findAll(spec, pageable);
+        return PageResponse.from(page.map(this::toV2Response));
+    }
+
     public PropertyResponse findById(String id) {
         Property property = getOrThrow(id);
         return toResponse(property);
+    }
+
+    public PropertyV2Response findByIdV2(String id) {
+        Property property = getOrThrow(id);
+        return toV2Response(property);
     }
 
     @Transactional
@@ -82,6 +101,7 @@ public class PropertyService {
 
     private void applyRequest(Property property, PropertyRequest request) {
         property.setTitle(request.title());
+        property.setOriginalPropertyName(request.originalPropertyName());
         property.setDescription(request.description());
         property.setType(request.type());
         property.setAddress(request.address());
@@ -156,6 +176,17 @@ public class PropertyService {
                 p.getLatitude(), p.getLongitude(), p.getStartingPrice(), p.getEndingPrice(),
                 p.getCapacity(), p.getContactPhone(), p.getStatus(),
                 amenityNames, images, avgRating, p.getCreatedAt(), p.getModifiedAt()
+        );
+    }
+
+    private PropertyV2Response toV2Response(Property property) {
+        PropertyResponse response = toResponse(property);
+        return new PropertyV2Response(
+                response.id(), response.title(), property.getOriginalPropertyName(), response.description(),
+                response.type(), response.address(), response.city(), response.latitude(), response.longitude(),
+                response.startingPrice(), response.endingPrice(), response.capacity(), response.contactPhone(),
+                response.status(), response.amenities(), response.images(), response.averageRating(),
+                response.createdAt(), response.modifiedAt()
         );
     }
 }
