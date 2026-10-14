@@ -11,12 +11,14 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Accepts an optional client-supplied id. If null/blank, the backend generates one
- * (see BaseEntity#onCreate). This lets a future offline-first client generate its own
- * UUIDs while still working correctly when it doesn't.
+ * Accepts an optional client-supplied id and slug. If the slug is null/blank, the
+ * backend generates it from the title and city.
  */
 public record PropertyRequest(
         String id,
+
+        @Size(max = 255, message = "Slug must be at most 255 characters")
+        String slug,
 
         @NotBlank(message = "Title is required")
         String title,

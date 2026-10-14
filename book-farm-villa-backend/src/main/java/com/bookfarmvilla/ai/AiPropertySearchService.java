@@ -161,7 +161,7 @@ public class AiPropertySearchService {
         Set<String> amenities = p.getAmenities().stream().map(a -> a.getName()).collect(java.util.stream.Collectors.toSet());
 
         return new PropertyResponse(
-                p.getId(), p.getTitle(), p.getDescription(), p.getType(), p.getAddress(), p.getCity(),
+                p.getId(), p.getSlug(), p.getTitle(), p.getDescription(), p.getType(), p.getAddress(), p.getCity(),
                 p.getLatitude(), p.getLongitude(), p.getStartingPrice(), p.getEndingPrice(),
                 p.getCapacity(), p.getContactPhone(), p.getStatus(), amenities,
                 images, rating, p.getCreatedAt(), p.getModifiedAt()

@@ -16,6 +16,7 @@ import com.bookfarmvilla.repository.AmenityRepository;
 import com.bookfarmvilla.repository.PropertyRepository;
 import com.bookfarmvilla.repository.PropertySpecifications;
 import com.bookfarmvilla.repository.ReviewRepository;
+import com.bookfarmvilla.util.PropertySlug;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -93,19 +94,17 @@ public class PropertyService {
 
     @Transactional
     public void delete(String id) {
-        if (!propertyRepository.existsById(id)) {
-            throw ResourceNotFoundException.of("Property", id);
-        }
-        propertyRepository.deleteById(id);
+        propertyRepository.delete(getOrThrow(id));
     }
 
     private void applyRequest(Property property, PropertyRequest request) {
         property.setTitle(request.title());
+        property.setCity(request.city());
+        property.setSlug(resolveSlug(property, request.slug()));
         property.setOriginalPropertyName(request.originalPropertyName());
         property.setDescription(request.description());
         property.setType(request.type());
         property.setAddress(request.address());
-        property.setCity(request.city());
         property.setLatitude(request.latitude());
         property.setLongitude(request.longitude());
         property.setStartingPrice(request.startingPrice());
@@ -154,7 +153,27 @@ public class PropertyService {
 
     private Property getOrThrow(String id) {
         return propertyRepository.findById(id)
+                .or(() -> propertyRepository.findBySlug(id))
                 .orElseThrow(() -> ResourceNotFoundException.of("Property", id));
+    }
+
+    private String resolveSlug(Property property, String requestedSlug) {
+        boolean generated = requestedSlug == null || requestedSlug.isBlank();
+        String baseSlug = generated
+                ? PropertySlug.from(property.getTitle(), property.getCity())
+                : requestedSlug.trim();
+        String slug = baseSlug;
+        int suffix = 2;
+        while (true) {
+            Property existing = propertyRepository.findBySlug(slug).orElse(null);
+            if (existing == null || existing.getId().equals(property.getId())) {
+                return slug;
+            }
+            if (!generated) {
+                throw new BadRequestException("Property slug is already in use");
+            }
+            slug = PropertySlug.withSuffix(baseSlug, suffix++);
+        }
     }
 
     private PropertyResponse toResponse(Property p) {
@@ -172,7 +191,7 @@ public class PropertyService {
         Double avgRating = avgOpt.isPresent() ? avgOpt.getAsDouble() : null;
 
         return new PropertyResponse(
-                p.getId(), p.getTitle(), p.getDescription(), p.getType(), p.getAddress(), p.getCity(),
+                p.getId(), p.getSlug(), p.getTitle(), p.getDescription(), p.getType(), p.getAddress(), p.getCity(),
                 p.getLatitude(), p.getLongitude(), p.getStartingPrice(), p.getEndingPrice(),
                 p.getCapacity(), p.getContactPhone(), p.getStatus(),
                 amenityNames, images, avgRating, p.getCreatedAt(), p.getModifiedAt()
@@ -182,7 +201,7 @@ public class PropertyService {
     private PropertyV2Response toV2Response(Property property) {
         PropertyResponse response = toResponse(property);
         return new PropertyV2Response(
-                response.id(), response.title(), property.getOriginalPropertyName(), response.description(),
+                response.id(), response.slug(), response.title(), property.getOriginalPropertyName(), response.description(),
                 response.type(), response.address(), response.city(), response.latitude(), response.longitude(),
                 response.startingPrice(), response.endingPrice(), response.capacity(), response.contactPhone(),
                 response.status(), response.amenities(), response.images(), response.averageRating(),

@@ -33,6 +33,9 @@ public class Property extends BaseEntity {
     @Column(nullable = false)
     private String title;
 
+    @Column(nullable = false, unique = true)
+    private String slug;
+
     @Column(name = "original_property_name")
     private String originalPropertyName;
 

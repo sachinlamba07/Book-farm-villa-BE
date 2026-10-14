@@ -58,6 +58,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
                         // Public - browsing listings
                         .requestMatchers(HttpMethod.GET, "/api/properties/**", "/api/v2/properties/**", "/api/vendors/**", "/api/amenities/**").permitAll()
+                        // Public - published blog posts
+                        .requestMatchers(HttpMethod.GET, "/api/v1/blogs/**").permitAll()
                         // Public - submitting a lead (call-me-back form) and reading reviews
                         .requestMatchers(HttpMethod.POST, "/api/leads").permitAll()
                         // Public - submitting a "partner with us" business enquiry

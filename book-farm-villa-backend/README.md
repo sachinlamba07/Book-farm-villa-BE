@@ -103,6 +103,25 @@ The v2 property list supports optional sorting by `title`, `city`, `startingPric
 `category` is one of `CATERER`, `DECORATOR`, `PHOTOGRAPHER`, `MAKEUP_ARTIST`, `DJ`, `OTHER`.
 The vendor list supports optional sorting by `name`, `city`, `status`, or `createdAt`.
 
+### Blog
+| Method | Path | Auth |
+|---|---|---|
+| GET | `/v1/blogs?category=&keyword=&sortBy=&sortDirection=&page=&size=` | Public — published posts only |
+| GET | `/v1/blogs/{slug}` | Public — published posts only |
+| GET | `/v1/admin/blogs?status=&sortBy=&sortDirection=&page=&size=` | ADMIN, STAFF |
+| GET | `/v1/admin/blogs/{id}` | ADMIN, STAFF |
+| POST | `/v1/admin/blogs` | ADMIN, STAFF — creates a draft |
+| PUT | `/v1/admin/blogs/{id}` | ADMIN, STAFF |
+| POST | `/v1/admin/blogs/{id}/publish` | ADMIN, STAFF |
+| POST | `/v1/admin/blogs/{id}/archive` | ADMIN, STAFF |
+
+Blog content is stored as Markdown. Cover images are supplied as URLs; uploading and
+storing image files is handled outside this API. Slugs are generated from titles when
+omitted and made unique automatically. A published post's slug cannot be changed.
+The public list returns card fields only, while the detail endpoint includes full
+Markdown content. The website should render Markdown with raw HTML disabled or
+sanitized. Admin status values are `DRAFT`, `PUBLISHED`, and `ARCHIVED`.
+
 ### Amenities
 | Method | Path | Auth |
 |---|---|---|

@@ -9,6 +9,7 @@ import java.util.Set;
 
 public record PropertyV2Response(
         String id,
+        String slug,
         String title,
         String originalPropertyName,
         String description,
