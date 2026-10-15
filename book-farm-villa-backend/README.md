@@ -82,7 +82,7 @@ Base URL: `/api`
 | PUT | `/properties/{id}` | ADMIN, STAFF |
 | DELETE | `/properties/{id}` | ADMIN |
 
-`type` is one of `FARMHOUSE`, `VILLA`, `WEDDING_LAWN`. `status` is `ACTIVE` or `INACTIVE`.
+`type` is one of `FARMHOUSE`, `VILLA`, `WEDDING_LAWN`, `AIRBNB`. `status` is `ACTIVE` or `INACTIVE`.
 Each property also carries `latitude`/`longitude` (exact map coordinates) and
 `startingPrice`/`endingPrice` (numeric, replacing the old free-text `priceRange` field).
 Property create/update requests can include `originalPropertyName`; property v2 GET endpoints
@@ -114,13 +114,17 @@ The vendor list supports optional sorting by `name`, `city`, `status`, or `creat
 | PUT | `/v1/admin/blogs/{id}` | ADMIN, STAFF |
 | POST | `/v1/admin/blogs/{id}/publish` | ADMIN, STAFF |
 | POST | `/v1/admin/blogs/{id}/archive` | ADMIN, STAFF |
+| PATCH | `/v1/admin/blogs/{id}/status` | ADMIN, STAFF — body: `{"status":"DRAFT|PUBLISHED|ARCHIVED"}` |
+| DELETE | `/v1/admin/blogs/{id}` | ADMIN, STAFF |
 
-Blog content is stored as Markdown. Cover images are supplied as URLs; uploading and
-storing image files is handled outside this API. Slugs are generated from titles when
-omitted and made unique automatically. A published post's slug cannot be changed.
-The public list returns card fields only, while the detail endpoint includes full
-Markdown content. The website should render Markdown with raw HTML disabled or
-sanitized. Admin status values are `DRAFT`, `PUBLISHED`, and `ARCHIVED`.
+Blog content is stored as sanitized HTML. Allowed formatting is limited to the
+rich-text editor's supported tags, links, images, and safe text color/font-size
+styles. Cover images are supplied as URLs; uploading and storing image files is
+handled outside this API. Slugs are generated from titles when omitted and made
+unique automatically. A published post's slug cannot be changed. The public
+list returns card fields only, while the detail endpoint includes full sanitized
+HTML content. Admin status values are `DRAFT`, `PUBLISHED`, and `ARCHIVED`;
+changing a post to `DRAFT` unpublishes it and clears its current publication date.
 
 ### Amenities
 | Method | Path | Auth |
@@ -173,10 +177,16 @@ admin panel needs to accept/decline requests.
 ### Reviews
 | Method | Path | Auth |
 |---|---|---|
+| GET | `/reviews?keyword=&propertyId=&vendorId=&page=&size=` | ADMIN, STAFF — paginated admin list |
 | GET | `/reviews/property/{propertyId}` | Public |
 | GET | `/reviews/vendor/{vendorId}` | Public |
 | POST | `/reviews` | ADMIN, STAFF (moderated for now) |
+| PUT | `/reviews/{id}` | ADMIN, STAFF |
 | DELETE | `/reviews/{id}` | ADMIN, STAFF |
+
+Admin search matches reviewer name, comment, property title, and vendor name.
+Property and vendor options for review forms use the existing keyword-filtered
+`/v2/properties` and `/vendors` list endpoints.
 
 ## Error Format
 

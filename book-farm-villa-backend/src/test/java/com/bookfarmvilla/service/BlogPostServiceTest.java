@@ -14,9 +14,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
+import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
@@ -82,6 +84,37 @@ class BlogPostServiceTest {
         assertEquals(BlogPostStatus.PUBLISHED, published.status());
         assertNotNull(published.publishedAt());
         verify(blogPostRepository).save(draft);
+    }
+
+    @Test
+    void changingPublishedPostToDraftClearsPublicationTime() {
+        BlogPost published = new BlogPost();
+        published.setId("post-id");
+        published.setSlug("published-post");
+        published.setTitle("Published post");
+        published.setContent("Body");
+        published.setAuthorName("Team");
+        published.setStatus(BlogPostStatus.PUBLISHED);
+        published.setPublishedAt(Instant.now());
+        when(blogPostRepository.findById("post-id")).thenReturn(Optional.of(published));
+        when(blogPostRepository.save(any(BlogPost.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        BlogPostResponse draft = blogPostService.updateStatus("post-id", BlogPostStatus.DRAFT);
+
+        assertEquals(BlogPostStatus.DRAFT, draft.status());
+        assertNull(draft.publishedAt());
+        verify(blogPostRepository).save(published);
+    }
+
+    @Test
+    void deletesExistingPost() {
+        BlogPost post = new BlogPost();
+        post.setId("post-id");
+        when(blogPostRepository.findById("post-id")).thenReturn(Optional.of(post));
+
+        blogPostService.delete("post-id");
+
+        verify(blogPostRepository).delete(post);
     }
 
     @Test

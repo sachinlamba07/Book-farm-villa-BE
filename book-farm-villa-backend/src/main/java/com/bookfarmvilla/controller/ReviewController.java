@@ -2,6 +2,7 @@ package com.bookfarmvilla.controller;
 
 import com.bookfarmvilla.dto.request.ReviewRequest;
 import com.bookfarmvilla.dto.response.ReviewResponse;
+import com.bookfarmvilla.dto.response.PageResponse;
 import com.bookfarmvilla.service.ReviewService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -9,12 +10,16 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -24,11 +29,25 @@ import java.util.List;
 public class ReviewController {
 
     private static final Logger log = LoggerFactory.getLogger(ReviewController.class);
+    private static final int DEFAULT_PAGE_SIZE = 20;
 
     private final ReviewService reviewService;
 
     public ReviewController(ReviewService reviewService) {
         this.reviewService = reviewService;
+    }
+
+    @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
+    public ResponseEntity<PageResponse<ReviewResponse>> search(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String propertyId,
+            @RequestParam(required = false) String vendorId,
+            @PageableDefault(size = DEFAULT_PAGE_SIZE, sort = "createdAt") Pageable pageable
+    ) {
+        log.info("GET /api/reviews - keyword={}, propertyId={}, vendorId={}, page={}, size={}",
+                keyword, propertyId, vendorId, pageable.getPageNumber(), pageable.getPageSize());
+        return ResponseEntity.ok(reviewService.search(keyword, propertyId, vendorId, pageable));
     }
 
     @GetMapping("/property/{propertyId}")
@@ -52,6 +71,18 @@ public class ReviewController {
         ReviewResponse created = reviewService.create(request);
         log.info("POST /api/reviews - created review id={}", created.id());
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
+    public ResponseEntity<ReviewResponse> update(
+            @PathVariable String id,
+            @Valid @RequestBody ReviewRequest request
+    ) {
+        log.info("PUT /api/reviews/{} - updating review", id);
+        ReviewResponse updated = reviewService.update(id, request);
+        log.info("PUT /api/reviews/{} - updated", id);
+        return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{id}")

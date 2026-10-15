@@ -10,6 +10,7 @@ import com.bookfarmvilla.entity.enums.BlogPostStatus;
 import com.bookfarmvilla.exception.BadRequestException;
 import com.bookfarmvilla.exception.ResourceNotFoundException;
 import com.bookfarmvilla.repository.BlogPostRepository;
+import com.bookfarmvilla.util.BlogHtmlSanitizer;
 import com.bookfarmvilla.util.BlogSlug;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -83,6 +84,26 @@ public class BlogPostService {
         return toResponse(blogPostRepository.save(post));
     }
 
+    @Transactional
+    public BlogPostResponse updateStatus(String id, BlogPostStatus status) {
+        BlogPost post = getOrThrow(id);
+        if (status == BlogPostStatus.PUBLISHED) {
+            if (post.getStatus() != BlogPostStatus.PUBLISHED) {
+                post.setPublishedAt(Instant.now());
+            }
+        } else if (status == BlogPostStatus.DRAFT) {
+            post.setPublishedAt(null);
+        }
+        post.setStatus(status);
+        return toResponse(blogPostRepository.save(post));
+    }
+
+    @Transactional
+    public void delete(String id) {
+        BlogPost post = getOrThrow(id);
+        blogPostRepository.delete(post);
+    }
+
     private void applyRequest(BlogPost post, BlogPostRequest request, boolean creating) {
         String requestedSlug = request.slug();
         String slug;
@@ -105,7 +126,7 @@ public class BlogPostService {
         post.setSlug(slug);
         post.setTitle(request.title().trim());
         post.setExcerpt(blankToNull(request.excerpt()));
-        post.setContent(request.content());
+        post.setContent(BlogHtmlSanitizer.sanitize(request.content()));
         post.setCoverImageUrl(blankToNull(request.coverImageUrl()));
         post.setCoverImageAlt(blankToNull(request.coverImageAlt()));
         post.setCategory(blankToNull(request.category()));
@@ -151,7 +172,8 @@ public class BlogPostService {
 
     private BlogPostResponse toResponse(BlogPost post) {
         return new BlogPostResponse(
-                post.getId(), post.getSlug(), post.getTitle(), post.getExcerpt(), post.getContent(),
+                post.getId(), post.getSlug(), post.getTitle(), post.getExcerpt(),
+                BlogHtmlSanitizer.sanitize(post.getContent()),
                 post.getCoverImageUrl(), post.getCoverImageAlt(), post.getCategory(), post.getAuthorName(),
                 post.getStatus(), post.getSeoTitle(), post.getSeoDescription(), post.getPublishedAt(),
                 post.getCreatedAt(), post.getModifiedAt()

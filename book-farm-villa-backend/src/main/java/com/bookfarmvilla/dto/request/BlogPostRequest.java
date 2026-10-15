@@ -14,7 +14,7 @@ public record BlogPostRequest(
         @Size(max = 500, message = "Excerpt must be at most 500 characters")
         String excerpt,
 
-        @NotBlank(message = "Markdown content is required")
+        @NotBlank(message = "Content is required")
         String content,
 
         @Size(max = 1024, message = "Cover image URL must be at most 1024 characters")
