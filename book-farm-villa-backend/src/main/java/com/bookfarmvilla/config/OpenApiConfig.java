@@ -24,7 +24,7 @@ public class OpenApiConfig {
         return new OpenAPI()
                 .info(new Info()
                         .title("Book Farm Villa API")
-                        .description("Farmhouse, villa, wedding-lawn and vendor listing platform - admin/staff managed, call-to-book model.")
+                        .description("Farmhouse, villa, wedding-lawn, Airbnb and vendor listing platform - admin/staff managed, call-to-book model.")
                         .version("v1"))
                 .addSecurityItem(new SecurityRequirement().addList(BEARER_SCHEME_NAME))
                 .components(new Components()

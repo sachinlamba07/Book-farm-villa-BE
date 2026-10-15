@@ -3,5 +3,6 @@ package com.bookfarmvilla.entity.enums;
 public enum PropertyType {
     FARMHOUSE,
     VILLA,
-    WEDDING_LAWN
+    WEDDING_LAWN,
+    AIRBNB
 }
