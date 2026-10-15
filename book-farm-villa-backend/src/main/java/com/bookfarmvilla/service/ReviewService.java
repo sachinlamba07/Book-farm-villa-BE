@@ -49,7 +49,7 @@ public class ReviewService {
 
     @Transactional(readOnly = true)
     public PageResponse<ReviewResponse> search(String keyword, String propertyId, String vendorId, Pageable pageable) {
-        String normalizedKeyword = normalizeFilter(keyword);
+        String normalizedKeyword = keyword == null ? "" : keyword.trim();
         String normalizedPropertyId = normalizeFilter(propertyId);
         String normalizedVendorId = normalizeFilter(vendorId);
         if (normalizedPropertyId != null && !propertyRepository.existsById(normalizedPropertyId)) {
