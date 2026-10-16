@@ -1,5 +1,6 @@
 package com.bookfarmvilla.repository;
 
+import com.bookfarmvilla.dto.response.PropertyCardRatingRow;
 import com.bookfarmvilla.entity.Review;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -12,6 +13,14 @@ import java.util.List;
 public interface ReviewRepository extends JpaRepository<Review, String> {
     List<Review> findByPropertyId(String propertyId);
     List<Review> findByVendorId(String vendorId);
+
+    @Query("""
+            select new com.bookfarmvilla.dto.response.PropertyCardRatingRow(r.property.id, avg(r.rating))
+            from Review r
+            where r.property.id in :propertyIds
+            group by r.property.id
+            """)
+    List<PropertyCardRatingRow> findPropertyCardRatings(@Param("propertyIds") List<String> propertyIds);
 
     @Query("""
             select r from Review r

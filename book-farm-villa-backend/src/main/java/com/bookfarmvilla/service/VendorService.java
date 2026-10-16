@@ -8,10 +8,12 @@ import com.bookfarmvilla.entity.Vendor;
 import com.bookfarmvilla.entity.VendorImage;
 import com.bookfarmvilla.entity.enums.ListingStatus;
 import com.bookfarmvilla.entity.enums.VendorCategory;
+import com.bookfarmvilla.exception.BadRequestException;
 import com.bookfarmvilla.exception.ResourceNotFoundException;
 import com.bookfarmvilla.repository.ReviewRepository;
 import com.bookfarmvilla.repository.VendorRepository;
 import com.bookfarmvilla.repository.VendorSpecifications;
+import com.bookfarmvilla.util.PropertySlug;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -65,17 +67,15 @@ public class VendorService {
 
     @Transactional
     public void delete(String id) {
-        if (!vendorRepository.existsById(id)) {
-            throw ResourceNotFoundException.of("Vendor", id);
-        }
-        vendorRepository.deleteById(id);
+        vendorRepository.delete(getOrThrow(id));
     }
 
     private void applyRequest(Vendor vendor, VendorRequest request) {
         vendor.setName(request.name());
+        vendor.setCity(request.city());
+        vendor.setSlug(resolveSlug(vendor, request.slug()));
         vendor.setCategory(request.category());
         vendor.setDescription(request.description());
-        vendor.setCity(request.city());
         vendor.setPriceRange(request.priceRange());
         vendor.setContactPhone(request.contactPhone());
         vendor.setStatus(request.status() != null ? request.status() : ListingStatus.ACTIVE);
@@ -94,7 +94,27 @@ public class VendorService {
 
     private Vendor getOrThrow(String id) {
         return vendorRepository.findById(id)
+                .or(() -> vendorRepository.findBySlug(id))
                 .orElseThrow(() -> ResourceNotFoundException.of("Vendor", id));
+    }
+
+    private String resolveSlug(Vendor vendor, String requestedSlug) {
+        boolean generated = requestedSlug == null || requestedSlug.isBlank();
+        String baseSlug = generated
+                ? PropertySlug.from(vendor.getName(), vendor.getCity())
+                : PropertySlug.from(requestedSlug, "");
+        String slug = baseSlug;
+        int suffix = 2;
+        while (true) {
+            Vendor existing = vendorRepository.findBySlug(slug).orElse(null);
+            if (existing == null || existing.getId().equals(vendor.getId())) {
+                return slug;
+            }
+            if (!generated) {
+                throw new BadRequestException("Vendor slug is already in use");
+            }
+            slug = PropertySlug.withSuffix(baseSlug, suffix++);
+        }
     }
 
     private VendorResponse toResponse(Vendor v) {
@@ -108,7 +128,7 @@ public class VendorService {
         Double avgRating = avgOpt.isPresent() ? avgOpt.getAsDouble() : null;
 
         return new VendorResponse(
-                v.getId(), v.getName(), v.getCategory(), v.getDescription(), v.getCity(),
+                v.getId(), v.getSlug(), v.getName(), v.getCategory(), v.getDescription(), v.getCity(),
                 v.getPriceRange(), v.getContactPhone(), v.getStatus(), images, avgRating,
                 v.getCreatedAt(), v.getModifiedAt()
         );

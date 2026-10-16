@@ -149,6 +149,7 @@ public class PropertyService {
                 property.getImages().add(image);
             }
         }
+
     }
 
     private Property getOrThrow(String id) {

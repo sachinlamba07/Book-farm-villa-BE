@@ -74,6 +74,11 @@ public class GlobalExceptionHandler {
         return clientError(HttpStatus.UNAUTHORIZED, "Invalid email or password", ex, req);
     }
 
+    @ExceptionHandler(AccountLockedException.class)
+    public ResponseEntity<ErrorResponse> handleAccountLocked(AccountLockedException ex, HttpServletRequest req) {
+        return clientError(HttpStatus.LOCKED, ex.getMessage(), ex, req);
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex, HttpServletRequest req) {
         return clientError(HttpStatus.FORBIDDEN, "You do not have permission to perform this action", ex, req);

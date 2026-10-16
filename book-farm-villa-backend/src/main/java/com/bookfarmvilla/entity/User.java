@@ -31,6 +31,9 @@ public class User extends BaseEntity {
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
+    @Column(name = "failed_login_attempts", nullable = false)
+    private int failedLoginAttempts;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role = Role.GUEST;

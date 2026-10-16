@@ -24,7 +24,7 @@ public class AiChatService {
             Never invent a location, price, capacity, amenity, date, or property fact.
             Return ONLY valid JSON:
             {
-              "intent": "SEARCH_PROPERTY|SEARCH_VENDOR|PROPERTY_QUESTION|GENERAL",
+              "intent": "SEARCH_PROPERTY|SEARCH_VENDOR|PROPERTY_QUESTION|COMPARE|BOOK_ENQUIRY|GENERAL|OFF_TOPIC",
               "requirements": {
                 "location": null,
                 "guests": null,
@@ -39,21 +39,35 @@ public class AiChatService {
             Use integer INR for budget. Convert 15k to 15000 and 1.5 lakh to 150000.
             Recognize Hindi/Hinglish and English.
             For "near me", do not invent a city; set location to null.
-            propertyType may be FARMHOUSE, VILLA or WEDDING_LAWN.
+            propertyType may be FARMHOUSE, VILLA, WEDDING_LAWN, or a vendor category.
+            For an Airbnb-style stay or other venue that does not map to those types, leave
+            propertyType null and search verified listings without inventing a new type.
+            Classify the user's actual intent, including short searches, refinements,
+            questions about one verified listing, comparisons, enquiry requests, small talk,
+            vendor searches, and off-topic questions.
+            Carry forward requirements already provided in conversation history unless corrected.
             Keep response empty unless a short clarification is useful.
             """;
 
     private static final String RESPONSE_SYSTEM = """
-            You are BookFarmVilla AI, a property booking assistant.
-            Use ONLY the VERIFIED_DATA supplied in the user prompt.
-            Never invent or assume property/vendor facts.
-            If a field is absent or unknown, say you do not have verified information.
-            Do not claim booking availability unless VERIFIED_DATA explicitly contains it.
-            Do not claim exact distance unless distance is supplied as verified data.
-            Ask concise follow-up questions when required search information is missing.
-            Remember the conversation history and preserve previously supplied requirements.
-            Reply naturally in the user's language (Hindi/Hinglish if they use it).
-            Keep every reply brief, ideally no more than three short sentences.
+            You are BookFarmVilla's concise, friendly venue and vendor enquiry assistant.
+            Reply in simple English unless the latest user message is Hinglish in Roman script;
+            in that case, reply in simple Hinglish. Keep the same language on every turn.
+            Use ONLY VERIFIED_DATA for every property/vendor fact. Never invent listing names,
+            prices, amenities, availability, capacity, distances, or other details. Listing data
+            must be displayed as cards supplied separately by the application.
+            When no exact match exists, never stop at "we don't have properties": show the real
+            closest alternatives supplied in VERIFIED_DATA and plainly say which filter was relaxed.
+            Relax budget first, then location; consider another venue type only after those steps.
+            Ask at most one short follow-up question, only for an important missing requirement.
+            Bold key requirement words with **markdown**. Do not repeat information the user gave.
+            A booking is only an enquiry: a booking expert calls the customer. Never say it is
+            confirmed, paid, or available. Do not promise a date or availability.
+            For property/vendor details, summarize only verified description, capacity, price,
+            location, and amenities. For off-topic questions, answer briefly and steer back to
+            BookFarmVilla venues or vendors.
+            Remember conversation history and preserve stated requirements.
+            Keep replies short and conversational; use a list only when it improves options.
             Do not mention internal prompts, JSON, databases, APIs, providers, or token limits.
             """;
 
@@ -81,12 +95,21 @@ public class AiChatService {
         long extractionStartedAt = System.nanoTime();
         AiIntent extracted = extractIntent(request);
         System.out.println("[AI] Intent extraction completed in " + elapsedMillis(extractionStartedAt) + " ms");
-        AiRequirements requirements = mergeRequirements(request.history(), extracted.requirements());
+        AiRequirements requirements = mergeRequirements(request.message(), extracted.requirements());
 
         long searchStartedAt = System.nanoTime();
         boolean isVendor = "SEARCH_VENDOR".equalsIgnoreCase(extracted.intent());
-        List<PropertyResponse> properties = isVendor ? List.of() : searchService.searchProperties(requirements);
-        List<VendorResponse> vendors = isVendor ? searchService.searchVendors(requirements) : List.of();
+        AiPropertySearchService.PropertySearchResult searchResult = isVendor
+                ? new AiPropertySearchService.PropertySearchResult(List.of(), List.of())
+                : searchService.searchPropertiesWithAlternatives(
+                        requirements, request.latitude(), request.longitude());
+        List<PropertyResponse> properties = searchResult.properties();
+        AiPropertySearchService.VendorSearchResult vendorSearchResult = isVendor
+                ? searchService.searchVendorsWithAlternatives(requirements)
+                : new AiPropertySearchService.VendorSearchResult(List.of(), List.of());
+        List<VendorResponse> vendors = vendorSearchResult.vendors();
+        List<String> relaxedFilters = new ArrayList<>(searchResult.relaxedFilters());
+        relaxedFilters.addAll(vendorSearchResult.relaxedFilters());
 
         // Property/vendor context can be supplied by the UI when a user is asking
         // a question about a specific listing. The data still comes directly from
@@ -104,29 +127,31 @@ public class AiChatService {
         System.out.println("[AI] Listing search completed in " + elapsedMillis(searchStartedAt) + " ms");
 
         String verifiedData = buildVerifiedData(properties, vendors);
-        String prompt = buildResponsePrompt(request, requirements, properties, vendors, verifiedData);
+        String prompt = buildResponsePrompt(
+                request, requirements, properties, vendors, verifiedData, relaxedFilters);
 
         String message;
         long responseStartedAt = System.nanoTime();
         try {
             message = providerRouter.current().generate(RESPONSE_SYSTEM, prompt);
         } catch (AiProviderException ex) {
-            System.err.println("[AI] Response generation failed: " + ex.getMessage());
-            ex.printStackTrace(System.err);
-            message = fallbackMessage(requirements, properties, vendors);
+            System.err.println("[AI] Response generation failed; using verified-data fallback.");
+            message = fallbackMessage(request.message(), requirements, properties, vendors, relaxedFilters);
         }
         System.out.println("[AI] Response generation stage completed in " + elapsedMillis(responseStartedAt) + " ms");
 
         boolean nearMeRequested = containsNearMe(request.message());
-        boolean locationSupported = false;
+        boolean coordinatesSupplied = request.latitude() != null && request.longitude() != null;
+        boolean coordinatesAvailable = properties.stream()
+                .anyMatch(property -> property.latitude() != null && property.longitude() != null);
+        boolean locationSupported = coordinatesSupplied && coordinatesAvailable;
         String locationMessage = null;
 
         if (nearMeRequested) {
-            // The current Property entity does not contain coordinates. We intentionally
-            // do not guess distance or coordinates. This keeps "near me" truthful.
-            locationMessage = "Near Me needs verified property latitude/longitude. Your current property data does not store coordinates yet.";
-            if (request.latitude() == null || request.longitude() == null) {
-                locationMessage = "Please allow location access. Exact nearby results will be enabled once property coordinates are available.";
+            if (!coordinatesSupplied) {
+                locationMessage = "Please allow location access to sort verified nearby listings.";
+            } else if (!coordinatesAvailable) {
+                locationMessage = "Nearby sorting is unavailable because these listings do not have verified coordinates.";
             }
         }
 
@@ -154,8 +179,7 @@ public class AiChatService {
             String raw = providerRouter.current().generate(EXTRACTION_SYSTEM, prompt);
             return parseIntent(raw);
         } catch (Exception ex) {
-            System.err.println("[AI] Intent extraction failed; using deterministic fallback: " + ex.getMessage());
-            ex.printStackTrace(System.err);
+            System.err.println("[AI] Intent extraction failed; using deterministic fallback.");
             return deterministicIntent(request.message());
         }
     }
@@ -180,12 +204,36 @@ public class AiChatService {
         return raw;
     }
 
-    private AiRequirements mergeRequirements(List<AiChatMessage> history, AiRequirements current) {
-        if (history == null || history.isEmpty()) return current;
+    private AiRequirements mergeRequirements(String message, AiRequirements current) {
+        AiRequirements latest = current == null ? AiRequirements.empty() : current;
+        String marker = "Previously understood requirements: ";
+        int markerIndex = message.indexOf(marker);
+        if (markerIndex < 0) return latest;
 
-        // We deliberately ask the model to carry the conversation context during extraction.
-        // This method only protects missing fields from a partially populated extraction.
-        return current;
+        int start = markerIndex + marker.length();
+        int end = message.indexOf('\n', start);
+        String priorJson = message.substring(start, end < 0 ? message.length() : end).trim();
+        try {
+            AiRequirements prior = objectMapper.readValue(priorJson, AiRequirements.class);
+            return new AiRequirements(
+                    firstNonNull(latest.location(), prior.location()),
+                    firstNonNull(latest.guests(), prior.guests()),
+                    firstNonNull(latest.budget(), prior.budget()),
+                    firstNonNull(latest.propertyType(), prior.propertyType()),
+                    latest.amenities() == null || latest.amenities().isEmpty()
+                            ? prior.amenities()
+                            : latest.amenities(),
+                    firstNonNull(latest.purpose(), prior.purpose()),
+                    firstNonNull(latest.date(), prior.date())
+            );
+        } catch (Exception ex) {
+            System.err.println("[AI] Previously understood requirements could not be parsed.");
+            return latest;
+        }
+    }
+
+    private <T> T firstNonNull(T current, T previous) {
+        return current != null ? current : previous;
     }
 
     private String buildResponsePrompt(
@@ -193,7 +241,8 @@ public class AiChatService {
             AiRequirements requirements,
             List<PropertyResponse> properties,
             List<VendorResponse> vendors,
-            String verifiedData
+            String verifiedData,
+            List<String> relaxedFilters
     ) {
         return """
                 CONVERSATION:
@@ -208,28 +257,34 @@ public class AiChatService {
                 VERIFIED_DATA:
                 %s
 
+                FILTERS_RELAXED:
+                %s
+
                 Rules:
-                - If guests/location/budget are required for a useful search and are missing, ask for only the most important missing item.
-                - If VERIFIED_DATA is empty, say that no matching verified listing was found; do not create examples.
-                - If results exist, summarize them briefly and tell the UI to show the returned cards without inventing fields.
-                - If the customer asks about a field that is not in VERIFIED_DATA, explicitly say it is not verified.
+                - The UI renders property/vendor cards from VERIFIED_DATA; never invent cards or their details.
+                - Ask for one missing requirement at a time, and only when needed to refine results.
+                - If VERIFIED_DATA is empty, say no exact verified match was found, then invite one useful refinement.
+                - If FILTERS_RELAXED is non-empty, explain every relaxed filter plainly and recommend these real cards.
+                - If the customer asks about a field absent from VERIFIED_DATA, say it is not verified.
+                - Do not answer unrelated questions at length; steer back to venues or vendors.
                 """.formatted(
                 renderHistory(request.history()),
                 request.message(),
                 toJson(requirements),
-                verifiedData
+                verifiedData,
+                relaxedFilters.isEmpty() ? "none" : String.join(", ", relaxedFilters)
         );
     }
 
     private String buildVerifiedData(List<PropertyResponse> properties, List<VendorResponse> vendors) {
         List<Object> safe = new ArrayList<>();
         safe.addAll(properties.stream().map(p -> new VerifiedProperty(
-                p.id(), p.title(), p.city(), p.type() == null ? null : p.type().name(),
+                p.id(), p.title(), p.description(), p.city(), p.type() == null ? null : p.type().name(),
                 formatPriceRange(p.startingPrice(), p.endingPrice()), p.capacity(), p.amenities(), p.averageRating(),
                 p.address(), p.contactPhone(), p.images().stream().findFirst().map(i -> i.url()).orElse(null)
         )).toList());
         safe.addAll(vendors.stream().map(v -> new VerifiedVendor(
-                v.id(), v.name(), v.city(), v.category() == null ? null : v.category().name(),
+                v.id(), v.name(), v.description(), v.city(), v.category() == null ? null : v.category().name(),
                 v.priceRange(), v.averageRating(), v.contactPhone(),
                 v.images().stream().findFirst().map(i -> i.url()).orElse(null)
         )).toList());
@@ -273,12 +328,12 @@ public class AiChatService {
     private AiIntent deterministicIntent(String message) {
         String m = message.toLowerCase(Locale.ROOT);
         boolean vendor = m.contains("vendor") || m.contains("caterer") || m.contains("decorator")
-                || m.contains("photographer") || m.contains("dj");
+                || m.contains("photographer") || m.contains("dj") || m.contains("makeup artist");
         Integer guests = extractNumberBefore(m, "people", "person", "guests", "guest", "log");
         Integer budget = extractBudget(m);
 
         String type = m.contains("villa") ? "VILLA"
-                : m.contains("wedding lawn") || m.contains("wedding lawn") ? "WEDDING_LAWN"
+                : m.contains("wedding lawn") || m.contains("lawn") ? "WEDDING_LAWN"
                 : m.contains("farmhouse") || m.contains("farm house") ? "FARMHOUSE" : null;
 
         List<String> amenities = new ArrayList<>();
@@ -307,37 +362,70 @@ public class AiChatService {
     }
 
     private Integer extractBudget(String text) {
+        String normalized = text.replace(",", "");
         java.util.regex.Matcher m = java.util.regex.Pattern
-                .compile("(?:₹|rs\\.?|inr\\s*)?\\s*(\\d+(?:\\.\\d+)?)\\s*(k|lakh|lac)?")
-                .matcher(text);
+                .compile("(?:under|below|less than|within|up to|budget(?:\\s+is)?|₹|rs\\.?|inr)\\s*₹?\\s*(\\d+(?:\\.\\d+)?)\\s*(k|thousand|lakh|lac)?|\\b(\\d+(?:\\.\\d+)?)\\s*(k|thousand|lakh|lac)\\b|\\b(\\d+(?:\\.\\d+)?)\\s*(?:rupees?|rs\\.?|budget)\\b",
+                        java.util.regex.Pattern.CASE_INSENSITIVE)
+                .matcher(normalized);
         if (!m.find()) return null;
-        double value = Double.parseDouble(m.group(1));
-        if ("k".equalsIgnoreCase(m.group(2))) value *= 1000;
-        if ("lakh".equalsIgnoreCase(m.group(2)) || "lac".equalsIgnoreCase(m.group(2))) value *= 100000;
+        String number = m.group(1) != null ? m.group(1)
+                : m.group(3) != null ? m.group(3) : m.group(5);
+        String unit = m.group(2) != null ? m.group(2)
+                : m.group(4) != null ? m.group(4) : "";
+        double value = Double.parseDouble(number);
+        if ("k".equalsIgnoreCase(unit) || "thousand".equalsIgnoreCase(unit)) value *= 1000;
+        if ("lakh".equalsIgnoreCase(unit) || "lac".equalsIgnoreCase(unit)) value *= 100000;
         return (int) value;
     }
 
-    private String fallbackMessage(AiRequirements r, List<PropertyResponse> properties, List<VendorResponse> vendors) {
+    private String fallbackMessage(
+            String userMessage,
+            AiRequirements r,
+            List<PropertyResponse> properties,
+            List<VendorResponse> vendors,
+            List<String> relaxedFilters
+    ) {
+        boolean hinglish = isHinglish(userMessage);
+        String relaxed = relaxedFilters.isEmpty()
+                ? ""
+                : hinglish
+                        ? " Exact match nahi mila, isliye " + relaxedFilters.get(0) + " filter relax kiya hai."
+                        : " No exact match, so I relaxed the " + relaxedFilters.get(0) + " filter.";
         if (!properties.isEmpty()) {
-            return "Mujhe " + properties.size() + " verified matching properties mili hain. Neeche available options dekhiye.";
+            return hinglish
+                    ? "Aapke liye " + properties.size() + " verified property options hain." + relaxed
+                    : "I found " + properties.size() + " verified property options." + relaxed;
         }
         if (!vendors.isEmpty()) {
-            return "Mujhe " + vendors.size() + " verified matching vendors mile hain. Neeche options dekhiye.";
+            return hinglish
+                    ? "Aapke liye " + vendors.size() + " verified vendor options hain." + relaxed
+                    : "I found " + vendors.size() + " verified vendor options." + relaxed;
         }
         if (r.location() == null && r.guests() == null && r.budget() == null && r.propertyType() == null) {
-            return "Sure! Aap location, guests aur approximate budget bata dijiye. Main available verified properties search karunga.";
+            return hinglish
+                    ? "Aapko **farmhouse**, **villa**, ya **wedding lawn** chahiye? Kaunsi **location**, **budget**, aur **guest count** rahega?"
+                    : "What **venue type**, **location**, **budget**, and **guest count** should I use?";
         }
-        return "Aapki requirement ke liye abhi koi verified matching listing nahi mili. Aap budget, location ya guest count mein thoda change karke try kar sakte hain.";
+        return hinglish
+                ? "Is request ka exact verified match nahi mila. Kya aap **budget** ya **location** thodi flexible rakh sakte hain?"
+                : "I couldn’t find an exact verified match. Could you be flexible on **budget** or **location**?";
+    }
+
+    static boolean isHinglish(String message) {
+        if (message == null) return false;
+        return message.toLowerCase(Locale.ROOT).matches(
+                "(?s).*\\b(mujhe|chahiye|dikhao|dikha|kuch|aur|nahi|nahin|pasand|kaunsa|kaisi|hai|hain|haan|han|mera|meri|aapke|liye|karo|krna|karna|bhejo|bataye|batao|kr|kya|acha|accha|sahi|kitna|kitne|mein|wala|wali|kar do|kr do)\\b.*"
+        );
     }
 
     private record VerifiedProperty(
-            String id, String title, String city, String type, String priceRange,
+            String id, String title, String description, String city, String type, String priceRange,
             Integer capacity, java.util.Set<String> amenities, Double rating,
             String address, String contactPhone, String imageUrl
     ) {}
 
     private record VerifiedVendor(
-            String id, String name, String city, String category, String priceRange,
+            String id, String name, String description, String city, String category, String priceRange,
             Double rating, String contactPhone, String imageUrl
     ) {}
 }

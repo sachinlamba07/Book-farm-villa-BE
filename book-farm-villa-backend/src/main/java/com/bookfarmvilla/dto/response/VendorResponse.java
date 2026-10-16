@@ -8,6 +8,7 @@ import java.util.List;
 
 public record VendorResponse(
         String id,
+        String slug,
         String name,
         VendorCategory category,
         String description,

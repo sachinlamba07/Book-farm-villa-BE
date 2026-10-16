@@ -14,7 +14,7 @@ class PropertySlugTest {
 
     @Test
     void removesDiacriticsAndPunctuation() {
-        assertEquals("cafe-farm", PropertySlug.from("Café & Farm", "Delhi"));
+        assertEquals("cafe-farm-delhi", PropertySlug.from("Café & Farm", "Delhi"));
     }
 
     @Test

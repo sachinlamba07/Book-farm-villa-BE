@@ -40,13 +40,11 @@ public class AiController {
             System.out.println("[AI] Chat request completed in " + elapsedMillis(startedAt) + " ms");
             return response;
         } catch (AiProviderException ex) {
-            System.err.println("[AI] Provider error after " + elapsedMillis(startedAt) + " ms: " + ex.getMessage());
-            ex.printStackTrace(System.err);
+            System.err.println("[AI] Provider error after " + elapsedMillis(startedAt) + " ms.");
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                     .body(Map.of("message", "The AI service is temporarily unavailable. Please try again shortly."));
         } catch (Exception ex) {
-            System.err.println("[AI] Chat request failed after " + elapsedMillis(startedAt) + " ms: " + ex.getMessage());
-            ex.printStackTrace(System.err);
+            System.err.println("[AI] Chat request failed after " + elapsedMillis(startedAt) + " ms.");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("message", "Unable to process the AI chat request."));
         }

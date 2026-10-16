@@ -58,6 +58,7 @@ public record PropertyRequest(
         List<@NotBlank(message = "Amenity names must not be blank")
                 @Size(max = 100, message = "Amenity names must be at most 100 characters") String> amenities,
 
-        List<String> imageUrls
+        List<@NotBlank(message = "Image URLs must not be blank")
+                @Size(max = 1024, message = "Image URLs must be at most 1024 characters") String> imageUrls
 ) {
 }

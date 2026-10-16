@@ -7,6 +7,7 @@ import com.bookfarmvilla.dto.request.RegisterStaffRequest;
 import com.bookfarmvilla.dto.response.AuthResponse;
 import com.bookfarmvilla.entity.User;
 import com.bookfarmvilla.entity.enums.Role;
+import com.bookfarmvilla.exception.AccountLockedException;
 import com.bookfarmvilla.exception.DuplicateResourceException;
 import com.bookfarmvilla.repository.UserRepository;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -16,6 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AuthService {
+
+    private static final int MAX_FAILED_LOGIN_ATTEMPTS = 5;
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -64,14 +67,28 @@ public class AuthService {
         return buildAuthResponse(saved);
     }
 
+    @Transactional(noRollbackFor = {BadCredentialsException.class, AccountLockedException.class})
     public AuthResponse login(LoginRequest request) {
-        User user = userRepository.findByEmail(request.email())
+        User user = userRepository.findByEmailForUpdate(request.email().trim())
                 .orElseThrow(() -> new BadCredentialsException("Invalid email or password"));
 
+        if (user.getFailedLoginAttempts() >= MAX_FAILED_LOGIN_ATTEMPTS) {
+            throw new AccountLockedException();
+        }
+
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+            user.setFailedLoginAttempts(user.getFailedLoginAttempts() + 1);
+            userRepository.save(user);
+            if (user.getFailedLoginAttempts() >= MAX_FAILED_LOGIN_ATTEMPTS) {
+                throw new AccountLockedException();
+            }
             throw new BadCredentialsException("Invalid email or password");
         }
 
+        if (user.getFailedLoginAttempts() > 0) {
+            user.setFailedLoginAttempts(0);
+            userRepository.save(user);
+        }
         return buildAuthResponse(user);
     }
 

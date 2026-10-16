@@ -5,6 +5,8 @@ import com.bookfarmvilla.entity.enums.ListingStatus;
 import com.bookfarmvilla.entity.enums.PropertyType;
 import org.springframework.data.jpa.domain.Specification;
 
+import java.util.Set;
+
 /**
  * Composable filters for the property search endpoint. Any of these can be
  * null/omitted - Specification.where(...).and(...) simply skips null predicates.
@@ -22,6 +24,11 @@ public final class PropertySpecifications {
     public static Specification<Property> hasType(PropertyType type) {
         if (type == null) return null;
         return (root, query, cb) -> cb.equal(root.get("type"), type);
+    }
+
+    public static Specification<Property> hasTypes(Set<PropertyType> types) {
+        if (types == null || types.isEmpty()) return null;
+        return (root, query, cb) -> root.get("type").in(types);
     }
 
     public static Specification<Property> hasStatus(ListingStatus status) {

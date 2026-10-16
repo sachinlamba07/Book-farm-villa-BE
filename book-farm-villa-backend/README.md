@@ -71,11 +71,17 @@ Base URL: `/api`
 | POST | `/auth/register-staff` | ADMIN | Creates a STAFF or ADMIN account |
 | POST | `/auth/login` | Public | Returns a JWT |
 
+After five consecutive incorrect passwords for an existing account, login returns HTTP
+`423 Locked` with an account-lock message. Successful login resets the failure count.
+To unlock an account manually, reset `failed_login_attempts` to zero for that user in
+the database.
+
 ### Properties
 | Method | Path | Auth |
 |---|---|---|
 | GET | `/properties?city=&type=&status=&minCapacity=&keyword=&page=&size=` | Public |
 | GET | `/properties/{id}` | Public |
+| GET | `/v2/properties/cards?types=FARMHOUSE,WEDDING_LAWN&city=&keyword=&minCapacity=&page=&size=` | Public — lightweight paginated property cards |
 | GET | `/v2/properties?city=&type=&status=&minCapacity=&keyword=&sortBy=&sortDirection=&page=&size=` | Public — includes `originalPropertyName` |
 | GET | `/v2/properties/{id}` | Public — includes `originalPropertyName` |
 | POST | `/properties` | ADMIN, STAFF |
@@ -85,6 +91,9 @@ Base URL: `/api`
 `type` is one of `FARMHOUSE`, `VILLA`, `WEDDING_LAWN`, `AIRBNB`. `status` is `ACTIVE` or `INACTIVE`.
 Each property also carries `latitude`/`longitude` (exact map coordinates) and
 `startingPrice`/`endingPrice` (numeric, replacing the old free-text `priceRange` field).
+The cards endpoint accepts multiple `types` and returns only card fields: ID, slug, title,
+type, coordinates, city, address, capacity, amenities, starting/ending price, average
+rating, and all image URLs. It omits contact details and caps page size at 100.
 Property create/update requests can include `originalPropertyName`; property v2 GET endpoints
 return that value. Lead GET responses also include the referenced property's
 `originalPropertyName` when the lead belongs to a property.
@@ -101,7 +110,10 @@ The v2 property list supports optional sorting by `title`, `city`, `startingPric
 | DELETE | `/vendors/{id}` | ADMIN |
 
 `category` is one of `CATERER`, `DECORATOR`, `PHOTOGRAPHER`, `MAKEUP_ARTIST`, `DJ`, `OTHER`.
-The vendor list supports optional sorting by `name`, `city`, `status`, or `createdAt`.
+Vendor requests accept an optional `slug`; if omitted, it is generated from the vendor
+name and city. Vendor responses include the slug, and vendor detail/update/delete accepts
+either the UUID or slug. The vendor list supports optional sorting by `name`, `city`,
+`status`, or `createdAt`.
 
 ### Blog
 | Method | Path | Auth |

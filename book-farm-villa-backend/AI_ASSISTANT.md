@@ -15,7 +15,7 @@ The frontend never receives the API key.
 
 Browser -> POST /api/ai/chat -> requirement extraction -> PostgreSQL verified search -> AI response
 
-The model does not decide which properties exist. The backend queries the existing property/vendor repositories first and sends only a small verified candidate set to the model.
+The model does not decide which properties exist. The backend queries the existing property/vendor repositories first and sends only verified candidates to the model. Property search relaxes budget first, then location, and finally venue type when there is no match; the response explains the relaxation while the UI renders the real listing cards.
 
 ## Free-first design
 
@@ -40,4 +40,4 @@ The assistant is instructed not to invent property/vendor fields. If a field is 
 
 ## Near Me
 
-The browser sends latitude/longitude after location permission. The current `Property` entity does not contain latitude/longitude, so the implementation deliberately does not invent distances. Exact nearby sorting requires verified coordinates to be added to property data later.
+When a visitor grants browser location access, the request includes latitude/longitude. The backend sorts properties with verified coordinates by distance and the UI may show distances computed from those coordinates. Listings without coordinates are never assigned an invented distance.

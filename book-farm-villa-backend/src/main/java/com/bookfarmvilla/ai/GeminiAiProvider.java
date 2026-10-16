@@ -123,7 +123,7 @@ public class GeminiAiProvider implements AiProvider {
             return text.asText();
         } catch (Exception ex) {
             System.err.println("[AI] Gemini request using " + requestModel + " failed after "
-                    + elapsedMillis(startedAt) + " ms: " + ex.getMessage());
+                    + elapsedMillis(startedAt) + " ms.");
             if (ex instanceof RestClientResponseException responseException) {
                 throw responseException;
             }

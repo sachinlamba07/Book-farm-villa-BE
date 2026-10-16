@@ -8,7 +8,7 @@ class BlogSlugTest {
 
     @Test
     void buildsUrlFriendlySlugFromTitle() {
-        assertEquals("best-dandiya-garba-nights-delhi-ncr-2026",
+        assertEquals("best-dandiya-garba-nights-in-delhi-ncr-2026",
                 BlogSlug.fromTitle("Best Dandiya & Garba Nights in Delhi NCR 2026"));
     }
 

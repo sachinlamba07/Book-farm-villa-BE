@@ -28,6 +28,9 @@ public class Vendor extends BaseEntity {
     @Column(nullable = false)
     private String name;
 
+    @Column(nullable = false, unique = true)
+    private String slug;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private VendorCategory category;
