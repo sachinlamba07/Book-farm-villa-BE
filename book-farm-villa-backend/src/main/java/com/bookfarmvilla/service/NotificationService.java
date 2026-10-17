@@ -3,42 +3,41 @@ package com.bookfarmvilla.service;
 import com.bookfarmvilla.entity.Lead;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.MailException;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
+
+import java.util.List;
 
 /**
  * Notifies the internal team when a new lead comes in.
  *
- * Sends enquiry email when SMTP is configured; otherwise logs that delivery
- * is not configured without failing the enquiry request.
+ * Sends enquiry email through Resend's HTTPS API, which is available from
+ * Render Free services unlike outbound SMTP.
  */
 @Service
 public class NotificationService {
 
     private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
+    private static final String RESEND_EMAILS_URL = "https://api.resend.com/emails";
 
-    private final ObjectProvider<JavaMailSender> mailSenderProvider;
-    private final String enquiryEmail;
-    private final String fromEmail;
-    private final String smtpUsername;
-    private final String smtpPassword;
+    private final RestClient restClient;
+    private final String emailTo;
+    private final String emailFrom;
+    private final String resendApiKey;
 
     public NotificationService(
-            ObjectProvider<JavaMailSender> mailSenderProvider,
-            @Value("${app.notifications.enquiry-email:}") String enquiryEmail,
-            @Value("${app.notifications.from-email:}") String fromEmail,
-            @Value("${spring.mail.username:}") String smtpUsername,
-            @Value("${spring.mail.password:}") String smtpPassword
+            RestClient.Builder restClientBuilder,
+            @Value("${app.notifications.email-to:}") String emailTo,
+            @Value("${app.notifications.email-from:}") String emailFrom,
+            @Value("${app.notifications.resend-api-key:}") String resendApiKey
     ) {
-        this.mailSenderProvider = mailSenderProvider;
-        this.enquiryEmail = enquiryEmail;
-        this.fromEmail = fromEmail;
-        this.smtpUsername = smtpUsername;
-        this.smtpPassword = smtpPassword;
+        this.restClient = restClientBuilder.build();
+        this.emailTo = emailTo;
+        this.emailFrom = emailFrom;
+        this.resendApiKey = resendApiKey;
     }
 
     public void notifyNewLead(Lead lead) {
@@ -49,25 +48,29 @@ public class NotificationService {
         log.info("New lead received for {} — name: {}, phone: {}, preferredDate: {}",
                 target, lead.getName(), lead.getPhone(), lead.getPreferredDate());
 
-        JavaMailSender mailSender = mailSenderProvider.getIfAvailable();
-        if (mailSender == null || isBlank(enquiryEmail) || isBlank(fromEmail)
-                || isBlank(smtpUsername) || isBlank(smtpPassword)) {
-            log.warn("Enquiry email notification is not configured; lead notification was not sent");
+        if (isBlank(resendApiKey) || isBlank(emailFrom) || isBlank(emailTo)) {
+            log.warn("Resend email notification is not configured; lead notification was not sent");
             return;
         }
 
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(fromEmail);
-        message.setTo(enquiryEmail);
-        message.setSubject("New BookFarmVilla enquiry");
-        message.setText(buildLeadEmailBody(lead, target));
-
         try {
-            mailSender.send(message);
-            log.info("Enquiry email notification sent to {}", enquiryEmail);
-        } catch (MailException exception) {
-            log.error("Failed to send enquiry email notification to {} ({})",
-                    enquiryEmail, exception.getClass().getSimpleName());
+            restClient.post()
+                    .uri(RESEND_EMAILS_URL)
+                    .header("Authorization", "Bearer " + resendApiKey)
+                    .body(new ResendEmailRequest(
+                            emailFrom,
+                            List.of(emailTo),
+                            "New BookFarmVilla enquiry",
+                            buildLeadEmailBody(lead, target)
+                    ))
+                    .retrieve()
+                    .toBodilessEntity();
+            log.info("Enquiry email notification sent to {}", emailTo);
+        } catch (RestClientResponseException exception) {
+            log.error("Resend rejected enquiry email (HTTP {})", exception.getStatusCode().value());
+        } catch (RestClientException exception) {
+            log.error("Could not send enquiry email through Resend ({})",
+                    exception.getClass().getSimpleName());
         }
     }
 
@@ -107,4 +110,11 @@ public class NotificationService {
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
     }
+
+    private record ResendEmailRequest(
+            String from,
+            List<String> to,
+            String subject,
+            String text
+    ) {}
 }

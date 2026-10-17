@@ -153,6 +153,13 @@ changing a post to `DRAFT` unpublishes it and clears its current publication dat
 | PATCH | `/leads/{id}/status` | ADMIN, STAFF |
 The lead list supports optional sorting by `name`, `createdAt`, or `status`.
 
+New lead notifications are sent through the Resend HTTPS API. Configure
+`RESEND_API_KEY`, `EMAIL_FROM`, and `EMAIL_TO` in the backend environment.
+`EMAIL_FROM` must be a sender/domain verified with Resend; `EMAIL_TO` defaults
+to `info@bookfarmvilla.com`. Email delivery failures are logged and do not
+discard a successfully submitted lead. SMTP is not used, so this works on
+hosting platforms that block outbound SMTP.
+
 For the supported list sorting parameters, `sortDirection` accepts `asc` or `desc`
 and defaults to `asc` when `sortBy` is supplied. Null values sort last, with `id`
 providing a stable tie-breaker. If `sortBy` is omitted, the existing ordering is
@@ -228,7 +235,7 @@ the backend from having to proxy large file uploads.
 
 - **Payments** — bookings close over a phone call, not checkout. No payment gateway, no `Booking`/`Payment` entities.
 - **Guest login flows beyond registration** — `GUEST` role exists in the schema (and is the default for `/auth/register`) but has no privileged actions yet. Extend `SecurityConfig` and add guest-specific endpoints if you build guest-facing features (e.g. saved favorites) later.
-- **Real email/SMS sending** — `NotificationService` logs new leads; wire in Resend/SendGrid/Twilio there when you're ready (see the TODO comment in that class).
+- **SMS/WhatsApp sending** — lead email notifications use Resend; add an SMS/WhatsApp provider when that channel is needed.
 
 ## Project Structure
 
