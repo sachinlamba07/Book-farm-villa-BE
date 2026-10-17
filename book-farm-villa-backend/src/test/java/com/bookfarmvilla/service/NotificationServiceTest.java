@@ -18,7 +18,10 @@ class NotificationServiceTest {
     @Test
     void sendsNewLeadEmailToConfiguredInbox() {
         JavaMailSender sender = mock(JavaMailSender.class);
-        ObjectProvider<JavaMailSender> senderProvider = () -> sender;
+
+        ObjectProvider<JavaMailSender> senderProvider = mock(ObjectProvider.class);
+        when(senderProvider.getIfAvailable()).thenReturn(sender);
+
         NotificationService service = new NotificationService(
                 senderProvider,
                 "info@bookfarmvilla.com",
