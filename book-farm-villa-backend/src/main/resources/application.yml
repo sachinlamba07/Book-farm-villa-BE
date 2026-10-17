@@ -8,6 +8,23 @@ spring:
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
 
+  mail:
+    host: ${SMTP_HOST:smtp.hostinger.com}
+    port: ${SMTP_PORT:465}
+    username: ${SMTP_USERNAME:info@bookfarmvilla.com}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${SMTP_AUTH:true}
+          ssl:
+            enable: ${SMTP_SSL_ENABLE:true}
+          starttls:
+            enable: ${SMTP_STARTTLS_ENABLE:false}
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+
   jpa:
     hibernate:
       ddl-auto: validate   # schema is owned by Flyway migrations, not Hibernate
@@ -26,6 +43,9 @@ server:
   port: ${PORT:8080}
 
 app:
+  notifications:
+    enquiry-email: ${ENQUIRY_NOTIFICATION_EMAIL:info@bookfarmvilla.com}
+    from-email: ${SMTP_FROM_EMAIL:info@bookfarmvilla.com}
   jwt:
     secret: ${JWT_SECRET:this-is-a-dev-only-secret-change-me-in-production-min-32-chars}
     expiration-ms: ${JWT_EXPIRATION_MS:86400000}   # 24 hours

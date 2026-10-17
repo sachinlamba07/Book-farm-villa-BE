@@ -7,7 +7,6 @@ import com.bookfarmvilla.entity.Vendor;
 import com.bookfarmvilla.exception.ResourceNotFoundException;
 import com.bookfarmvilla.repository.PropertyRepository;
 import com.bookfarmvilla.repository.VendorRepository;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 
