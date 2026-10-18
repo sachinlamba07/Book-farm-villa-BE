@@ -57,6 +57,7 @@ public class NotificationService {
             restClient.post()
                     .uri(RESEND_EMAILS_URL)
                     .header("Authorization", "Bearer " + resendApiKey)
+                    .header("User-Agent", "bookfarmvilla-backend/1.0")
                     .body(new ResendEmailRequest(
                             emailFrom,
                             List.of(emailTo),
