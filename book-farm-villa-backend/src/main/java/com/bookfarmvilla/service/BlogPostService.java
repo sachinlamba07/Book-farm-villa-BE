@@ -10,10 +10,12 @@ import com.bookfarmvilla.entity.enums.BlogPostStatus;
 import com.bookfarmvilla.exception.BadRequestException;
 import com.bookfarmvilla.exception.ResourceNotFoundException;
 import com.bookfarmvilla.repository.BlogPostRepository;
+import com.bookfarmvilla.repository.BlogPostSpecifications;
 import com.bookfarmvilla.util.BlogHtmlSanitizer;
 import com.bookfarmvilla.util.BlogSlug;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,9 +31,11 @@ public class BlogPostService {
     }
 
     public PageResponse<BlogPostSummaryResponse> findPublished(String category, String keyword, Pageable pageable) {
-        Page<BlogPost> page = blogPostRepository.findPublished(
-                BlogPostStatus.PUBLISHED, normalizeFilter(category), normalizeFilter(keyword), pageable
-        );
+        Specification<BlogPost> specification = Specification
+                .where(BlogPostSpecifications.hasStatus(BlogPostStatus.PUBLISHED))
+                .and(BlogPostSpecifications.hasCategory(category))
+                .and(BlogPostSpecifications.titleOrExcerptContains(keyword));
+        Page<BlogPost> page = blogPostRepository.findAll(specification, pageable);
         return PageResponse.from(page.map(this::toSummaryResponse));
     }
 
@@ -178,10 +182,6 @@ public class BlogPostService {
                 post.getStatus(), post.getSeoTitle(), post.getSeoDescription(), post.getPublishedAt(),
                 post.getCreatedAt(), post.getModifiedAt()
         );
-    }
-
-    private String normalizeFilter(String value) {
-        return value == null || value.isBlank() ? null : value.trim();
     }
 
     private String blankToNull(String value) {
