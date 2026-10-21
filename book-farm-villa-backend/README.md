@@ -70,6 +70,7 @@ Base URL: `/api`
 | POST | `/auth/register` | Public | Creates a GUEST account |
 | POST | `/auth/register-staff` | ADMIN | Creates a STAFF or ADMIN account |
 | POST | `/auth/login` | Public | Returns a JWT |
+| GET | `/uptime` | Public | Service-process uptime in seconds; does not check the database |
 
 After five consecutive incorrect passwords for an existing account, login returns HTTP
 `423 Locked` with an account-lock message. Successful login resets the failure count.
