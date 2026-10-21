@@ -52,7 +52,6 @@ public class ReviewService {
     }
 
     @Transactional(readOnly = true)
-    @Transactional(readOnly = true)
     public PageResponse<ReviewResponse> search(String keyword, String propertyId, String vendorId, Pageable pageable) {
         String normalizedKeyword = keyword == null ? "" : keyword.trim();
         String normalizedPropertyId = normalizeFilter(propertyId);

@@ -8,6 +8,8 @@ import com.bookfarmvilla.repository.ReviewRepository;
 import com.bookfarmvilla.repository.VendorRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
@@ -39,7 +41,8 @@ class AiPropertySearchServiceTest {
     @Test
     void relaxesBudgetBeforeLocationWhenMatchingPropertiesExistInRequestedLocation() {
         Property property = property("gurugram-farmhouse", "Gurugram", PropertyType.FARMHOUSE, 18000);
-        when(propertyRepository.findAll(anySpecification())).thenReturn(List.of(property));
+        when(propertyRepository.findAll(anySpecification(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(property)));
         when(reviewRepository.findByPropertyId(property.getId())).thenReturn(List.of());
 
         AiPropertySearchService.PropertySearchResult result = searchService.searchPropertiesWithAlternatives(
@@ -55,9 +58,9 @@ class AiPropertySearchServiceTest {
     @Test
     void relaxesLocationAfterBudgetIfNoPropertyMatchesInRequestedArea() {
         Property property = property("noida-farmhouse", "Noida", PropertyType.FARMHOUSE, 18000);
-        when(propertyRepository.findAll(anySpecification()))
-                .thenReturn(List.of())
-                .thenReturn(List.of(property));
+        when(propertyRepository.findAll(anySpecification(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()))
+                .thenReturn(new PageImpl<>(List.of(property)));
         when(reviewRepository.findByPropertyId(property.getId())).thenReturn(List.of());
 
         AiPropertySearchService.PropertySearchResult result = searchService.searchPropertiesWithAlternatives(
@@ -73,9 +76,9 @@ class AiPropertySearchServiceTest {
     @Test
     void returnsVerifiedAlternativeWhenTheRequestedTypeHasNoMatch() {
         Property alternative = property("noida-villa", "Noida", PropertyType.VILLA, 25000);
-        when(propertyRepository.findAll(anySpecification()))
-                .thenReturn(List.of())
-                .thenReturn(List.of(alternative));
+        when(propertyRepository.findAll(anySpecification(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()))
+                .thenReturn(new PageImpl<>(List.of(alternative)));
         when(reviewRepository.findByPropertyId(alternative.getId())).thenReturn(List.of());
 
         AiPropertySearchService.PropertySearchResult result = searchService.searchPropertiesWithAlternatives(
