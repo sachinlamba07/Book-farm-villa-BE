@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
@@ -40,13 +41,13 @@ public class NotificationService {
         this.resendApiKey = resendApiKey;
     }
 
+    @Async("notificationExecutor")
     public void notifyNewLead(Lead lead) {
         String target = lead.getProperty() != null
                 ? "property '" + lead.getProperty().getTitle() + "'"
                 : "vendor '" + lead.getVendor().getName() + "'";
 
-        log.info("New lead received for {} — name: {}, phone: {}, preferredDate: {}",
-                target, lead.getName(), lead.getPhone(), lead.getPreferredDate());
+        log.info("New lead notification queued for {}", target);
 
         if (isBlank(resendApiKey) || isBlank(emailFrom) || isBlank(emailTo)) {
             log.warn("Resend email notification is not configured; lead notification was not sent");

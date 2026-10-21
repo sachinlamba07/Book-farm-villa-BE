@@ -14,6 +14,7 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.BatchSize;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -47,11 +48,18 @@ public class Vendor extends BaseEntity {
     @Column(name = "contact_phone", nullable = false)
     private String contactPhone;
 
+    @Column(name = "rating_avg", nullable = false)
+    private Double ratingAverage = 0.0;
+
+    @Column(name = "rating_count", nullable = false)
+    private Long ratingCount = 0L;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ListingStatus status = ListingStatus.ACTIVE;
 
     @OneToMany(mappedBy = "vendor", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @OrderBy("isPrimary DESC")
+    @BatchSize(size = 50)
     private List<VendorImage> images = new ArrayList<>();
 }

@@ -4,13 +4,11 @@ import com.bookfarmvilla.dto.response.PageResponse;
 import com.bookfarmvilla.dto.response.PropertyCardAmenityRow;
 import com.bookfarmvilla.dto.response.PropertyCardBaseRow;
 import com.bookfarmvilla.dto.response.PropertyCardImageRow;
-import com.bookfarmvilla.dto.response.PropertyCardRatingRow;
 import com.bookfarmvilla.dto.response.PropertyCardResponse;
 import com.bookfarmvilla.entity.enums.PropertyType;
 import com.bookfarmvilla.repository.PropertyCardQueryRepository;
 import com.bookfarmvilla.repository.PropertyImageRepository;
 import com.bookfarmvilla.repository.PropertyRepository;
-import com.bookfarmvilla.repository.ReviewRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -42,9 +40,6 @@ class PropertyCardServiceTest {
     @Mock
     private PropertyImageRepository propertyImageRepository;
 
-    @Mock
-    private ReviewRepository reviewRepository;
-
     @InjectMocks
     private PropertyCardService propertyCardService;
 
@@ -52,7 +47,7 @@ class PropertyCardServiceTest {
     void returnsLeanCardDataWithAllMediaAndNoContactNumber() {
         PropertyCardBaseRow property = new PropertyCardBaseRow(
                 "property-id", "farmhouse-delhi", "Farmhouse", PropertyType.FARMHOUSE,
-                28.5, 77.2, "Delhi", "South Delhi", 20, new BigDecimal("40000"), new BigDecimal("50000")
+                28.5, 77.2, "Delhi", "South Delhi", 20, new BigDecimal("40000"), new BigDecimal("50000"), 4.5, 2L
         );
 
         when(propertyCardQueryRepository.findCards(any(), any(), any(), any(), any(Pageable.class)))
@@ -64,10 +59,6 @@ class PropertyCardServiceTest {
         when(propertyRepository.findCardAmenities(anyList())).thenReturn(List.of(
                 new PropertyCardAmenityRow("property-id", "Swimming Pool")
         ));
-        when(reviewRepository.findPropertyCardRatings(anyList())).thenReturn(List.of(
-                new PropertyCardRatingRow("property-id", 4.5)
-        ));
-
         PageResponse<PropertyCardResponse> result = propertyCardService.findCards(
                 Set.of(PropertyType.FARMHOUSE),
                 null,
@@ -82,6 +73,5 @@ class PropertyCardServiceTest {
         assertEquals(Set.of("Swimming Pool"), card.amenities());
         assertEquals(4.5, card.averageRating());
         verify(propertyImageRepository).findCardImages(List.of("property-id"));
-        verify(reviewRepository).findPropertyCardRatings(List.of("property-id"));
     }
 }

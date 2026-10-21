@@ -3,6 +3,8 @@ package com.bookfarmvilla.ai;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -14,6 +16,7 @@ import java.util.Map;
 
 @Component
 public class GeminiAiProvider implements AiProvider {
+    private static final Logger log = LoggerFactory.getLogger(GeminiAiProvider.class);
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
@@ -33,7 +36,7 @@ public class GeminiAiProvider implements AiProvider {
                 this.fallbackModel = fallbackModel;
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(Duration.ofSeconds(5));
-                requestFactory.setReadTimeout(Duration.ofSeconds(60));
+                requestFactory.setReadTimeout(Duration.ofSeconds(10));
         this.restClient = RestClient.builder()
                 .baseUrl("https://generativelanguage.googleapis.com")
                 .requestFactory(requestFactory)
@@ -46,7 +49,7 @@ public class GeminiAiProvider implements AiProvider {
             throw new AiProviderException("Gemini API key is not configured.");
         }
 
-                for (int attempt = 1; attempt <= 3; attempt++) {
+                for (int attempt = 1; attempt <= 2; attempt++) {
                         try {
                                 return generateWithModel(systemInstruction, userPrompt, model);
                         } catch (RestClientResponseException ex) {
@@ -55,9 +58,8 @@ public class GeminiAiProvider implements AiProvider {
                                                         + ex.getStatusCode().value() + ".", ex);
                                 }
 
-                                System.err.println("[AI] Gemini returned HTTP 503 for model " + model
-                                                + " (attempt " + attempt + "/3)");
-                                if (attempt == 3) {
+                                log.warn("Gemini returned HTTP 503 for model {} (attempt {}/2)", model, attempt);
+                                if (attempt == 2) {
                                         break;
                                 }
                                 pauseBeforeRetry(attempt);
@@ -69,10 +71,10 @@ public class GeminiAiProvider implements AiProvider {
                 }
 
                 if (fallbackModel == null || fallbackModel.isBlank() || fallbackModel.equals(model)) {
-                        throw new AiProviderException("Gemini returned HTTP 503 after three attempts; no distinct fallback model is configured.");
+                        throw new AiProviderException("Gemini returned HTTP 503 after two attempts; no distinct fallback model is configured.");
                 }
 
-                System.out.println("[AI] Switching to fallback Gemini model " + fallbackModel);
+                log.warn("Switching to configured fallback Gemini model {}", fallbackModel);
                 try {
                         return generateWithModel(systemInstruction, userPrompt, fallbackModel);
                 } catch (Exception ex) {
@@ -118,12 +120,10 @@ public class GeminiAiProvider implements AiProvider {
                 throw new AiProviderException("Gemini returned an empty response.");
             }
 
-            System.out.println("[AI] Gemini request using " + requestModel + " completed in "
-                    + elapsedMillis(startedAt) + " ms");
+            log.info("Gemini request using {} completed in {} ms", requestModel, elapsedMillis(startedAt));
             return text.asText();
         } catch (Exception ex) {
-            System.err.println("[AI] Gemini request using " + requestModel + " failed after "
-                    + elapsedMillis(startedAt) + " ms.");
+            log.warn("Gemini request using {} failed after {} ms", requestModel, elapsedMillis(startedAt));
             if (ex instanceof RestClientResponseException responseException) {
                 throw responseException;
             }

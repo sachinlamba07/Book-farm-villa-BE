@@ -17,6 +17,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
@@ -30,21 +32,25 @@ public class BlogPostService {
         this.blogPostRepository = blogPostRepository;
     }
 
+    @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "publishedBlogs", key = "T(java.util.Objects).toString(#category, '') + '|' + T(java.util.Objects).toString(#keyword, '') + '|' + #pageable.toString()")
     public PageResponse<BlogPostSummaryResponse> findPublished(String category, String keyword, Pageable pageable) {
-        Specification<BlogPost> specification = Specification
-                .where(BlogPostSpecifications.hasStatus(BlogPostStatus.PUBLISHED))
-                .and(BlogPostSpecifications.hasCategory(category))
-                .and(BlogPostSpecifications.titleOrExcerptContains(keyword));
-        Page<BlogPost> page = blogPostRepository.findAll(specification, pageable);
-        return PageResponse.from(page.map(this::toSummaryResponse));
+        Pageable boundedPageable = org.springframework.data.domain.PageRequest.of(
+                pageable.getPageNumber(), Math.min(pageable.getPageSize(), 100), pageable.getSort());
+        Page<BlogPostSummaryResponse> page = blogPostRepository.findPublishedSummaries(
+                BlogPostStatus.PUBLISHED, blankToNull(category), blankToNull(keyword), boundedPageable);
+        return PageResponse.from(page);
     }
 
+    @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "publishedBlogDetails", key = "#slug")
     public BlogPostResponse findPublishedBySlug(String slug) {
         BlogPost post = blogPostRepository.findBySlugAndStatus(slug, BlogPostStatus.PUBLISHED)
                 .orElseThrow(() -> ResourceNotFoundException.of("Blog post", slug));
         return toResponse(post);
     }
 
+    @Transactional(readOnly = true)
     public PageResponse<AdminBlogPostSummaryResponse> findAll(BlogPostStatus status, Pageable pageable) {
         Page<BlogPost> page = status == null
                 ? blogPostRepository.findAll(pageable)
@@ -52,11 +58,13 @@ public class BlogPostService {
         return PageResponse.from(page.map(this::toAdminSummaryResponse));
     }
 
+    @Transactional(readOnly = true)
     public BlogPostResponse findById(String id) {
         return toResponse(getOrThrow(id));
     }
 
     @Transactional
+    @CacheEvict(cacheNames = {"publishedBlogs", "publishedBlogDetails"}, allEntries = true)
     public BlogPostResponse create(BlogPostRequest request) {
         BlogPost post = new BlogPost();
         applyRequest(post, request, true);
@@ -65,6 +73,7 @@ public class BlogPostService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = {"publishedBlogs", "publishedBlogDetails"}, allEntries = true)
     public BlogPostResponse update(String id, BlogPostRequest request) {
         BlogPost post = getOrThrow(id);
         applyRequest(post, request, false);
@@ -72,6 +81,7 @@ public class BlogPostService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = {"publishedBlogs", "publishedBlogDetails"}, allEntries = true)
     public BlogPostResponse publish(String id) {
         BlogPost post = getOrThrow(id);
         if (post.getStatus() != BlogPostStatus.PUBLISHED) {
@@ -82,6 +92,7 @@ public class BlogPostService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = {"publishedBlogs", "publishedBlogDetails"}, allEntries = true)
     public BlogPostResponse archive(String id) {
         BlogPost post = getOrThrow(id);
         post.setStatus(BlogPostStatus.ARCHIVED);
@@ -89,6 +100,7 @@ public class BlogPostService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = {"publishedBlogs", "publishedBlogDetails"}, allEntries = true)
     public BlogPostResponse updateStatus(String id, BlogPostStatus status) {
         BlogPost post = getOrThrow(id);
         if (status == BlogPostStatus.PUBLISHED) {
@@ -103,6 +115,7 @@ public class BlogPostService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = {"publishedBlogs", "publishedBlogDetails"}, allEntries = true)
     public void delete(String id) {
         BlogPost post = getOrThrow(id);
         blogPostRepository.delete(post);

@@ -10,33 +10,37 @@ import com.bookfarmvilla.entity.enums.ListingStatus;
 import com.bookfarmvilla.entity.enums.VendorCategory;
 import com.bookfarmvilla.exception.BadRequestException;
 import com.bookfarmvilla.exception.ResourceNotFoundException;
-import com.bookfarmvilla.repository.ReviewRepository;
 import com.bookfarmvilla.repository.VendorRepository;
 import com.bookfarmvilla.repository.VendorSpecifications;
 import com.bookfarmvilla.util.PropertySlug;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.OptionalDouble;
 
 @Service
 public class VendorService {
 
-    private final VendorRepository vendorRepository;
-    private final ReviewRepository reviewRepository;
+    private static final int MAX_PAGE_SIZE = 100;
 
-    public VendorService(VendorRepository vendorRepository, ReviewRepository reviewRepository) {
+    private final VendorRepository vendorRepository;
+
+    public VendorService(VendorRepository vendorRepository) {
         this.vendorRepository = vendorRepository;
-        this.reviewRepository = reviewRepository;
     }
 
+    @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "vendorSearch", key = "T(java.util.Objects).toString(#city, '') + '|' + T(java.util.Objects).toString(#category, '') + '|' + T(java.util.Objects).toString(#status, '') + '|' + T(java.util.Objects).toString(#keyword, '') + '|' + #pageable.toString()")
     public PageResponse<VendorResponse> search(
             String city, VendorCategory category, ListingStatus status, String keyword, Pageable pageable
     ) {
+        pageable = PageRequest.of(pageable.getPageNumber(), Math.min(pageable.getPageSize(), MAX_PAGE_SIZE), pageable.getSort());
         Specification<Vendor> spec = Specification.where(VendorSpecifications.hasCity(city))
                 .and(VendorSpecifications.hasCategory(category))
                 .and(VendorSpecifications.hasStatus(status))
@@ -46,11 +50,14 @@ public class VendorService {
         return PageResponse.from(page.map(this::toResponse));
     }
 
+    @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "vendorDetails", key = "#id")
     public VendorResponse findById(String id) {
         return toResponse(getOrThrow(id));
     }
 
     @Transactional
+    @CacheEvict(cacheNames = {"vendorSearch", "vendorDetails"}, allEntries = true)
     public VendorResponse create(VendorRequest request) {
         Vendor vendor = new Vendor();
         vendor.setId(request.id());
@@ -59,6 +66,7 @@ public class VendorService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = {"vendorSearch", "vendorDetails"}, allEntries = true)
     public VendorResponse update(String id, VendorRequest request) {
         Vendor vendor = getOrThrow(id);
         applyRequest(vendor, request);
@@ -66,6 +74,7 @@ public class VendorService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = {"vendorSearch", "vendorDetails"}, allEntries = true)
     public void delete(String id) {
         vendorRepository.delete(getOrThrow(id));
     }
@@ -122,10 +131,8 @@ public class VendorService {
                 .map(img -> new VendorImageResponse(img.getId(), img.getUrl(), img.isPrimary()))
                 .toList();
 
-        OptionalDouble avgOpt = reviewRepository.findByVendorId(v.getId()).stream()
-                .mapToInt(r -> r.getRating())
-                .average();
-        Double avgRating = avgOpt.isPresent() ? avgOpt.getAsDouble() : null;
+        Double avgRating = v.getRatingCount() != null && v.getRatingCount() > 0
+                ? v.getRatingAverage() : null;
 
         return new VendorResponse(
                 v.getId(), v.getSlug(), v.getName(), v.getCategory(), v.getDescription(), v.getCity(),

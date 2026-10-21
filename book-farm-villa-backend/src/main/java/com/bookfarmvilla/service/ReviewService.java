@@ -14,6 +14,8 @@ import com.bookfarmvilla.repository.VendorRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -32,6 +34,7 @@ public class ReviewService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "propertyReviews", key = "#propertyId")
     public List<ReviewResponse> findByProperty(String propertyId) {
         if (!propertyRepository.existsById(propertyId)) {
             throw ResourceNotFoundException.of("Property", propertyId);
@@ -40,6 +43,7 @@ public class ReviewService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "vendorReviews", key = "#vendorId")
     public List<ReviewResponse> findByVendor(String vendorId) {
         if (!vendorRepository.existsById(vendorId)) {
             throw ResourceNotFoundException.of("Vendor", vendorId);
@@ -47,6 +51,7 @@ public class ReviewService {
         return reviewRepository.findByVendorId(vendorId).stream().map(this::toResponse).toList();
     }
 
+    @Transactional(readOnly = true)
     @Transactional(readOnly = true)
     public PageResponse<ReviewResponse> search(String keyword, String propertyId, String vendorId, Pageable pageable) {
         String normalizedKeyword = keyword == null ? "" : keyword.trim();
@@ -68,6 +73,7 @@ public class ReviewService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = {"propertySearch", "propertyV2Search", "propertyCards", "propertyDetails", "propertyV2Details", "vendorSearch", "vendorDetails", "propertyReviews", "vendorReviews"}, allEntries = true)
     public ReviewResponse create(ReviewRequest request) {
         Review review = new Review();
         review.setId(request.id());
@@ -76,6 +82,7 @@ public class ReviewService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = {"propertySearch", "propertyV2Search", "propertyCards", "propertyDetails", "propertyV2Details", "vendorSearch", "vendorDetails", "propertyReviews", "vendorReviews"}, allEntries = true)
     public ReviewResponse update(String id, ReviewRequest request) {
         Review review = reviewRepository.findById(id)
                 .orElseThrow(() -> ResourceNotFoundException.of("Review", id));
@@ -84,6 +91,7 @@ public class ReviewService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = {"propertySearch", "propertyV2Search", "propertyCards", "propertyDetails", "propertyV2Details", "vendorSearch", "vendorDetails", "propertyReviews", "vendorReviews"}, allEntries = true)
     public void delete(String id) {
         if (!reviewRepository.existsById(id)) {
             throw ResourceNotFoundException.of("Review", id);

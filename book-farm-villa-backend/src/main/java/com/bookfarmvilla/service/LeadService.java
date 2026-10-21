@@ -16,6 +16,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 public class LeadService {
@@ -68,10 +70,20 @@ public class LeadService {
         }
 
         Lead saved = leadRepository.save(lead);
-        notificationService.notifyNewLead(saved);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    notificationService.notifyNewLead(saved);
+                }
+            });
+        } else {
+            notificationService.notifyNewLead(saved);
+        }
         return toResponse(saved);
     }
 
+    @Transactional(readOnly = true)
     public PageResponse<LeadResponse> findAll(LeadStatus status, Pageable pageable) {
         Page<Lead> page = status != null
                 ? leadRepository.findByStatus(status, pageable)

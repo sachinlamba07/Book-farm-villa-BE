@@ -7,6 +7,8 @@ import com.bookfarmvilla.exception.DuplicateResourceException;
 import com.bookfarmvilla.exception.ResourceNotFoundException;
 import com.bookfarmvilla.repository.AmenityRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -20,11 +22,13 @@ public class AmenityService {
         this.amenityRepository = amenityRepository;
     }
 
+    @Cacheable(cacheNames = "amenities", key = "'all'")
     public List<AmenityResponse> findAll() {
         return amenityRepository.findAll().stream().map(this::toResponse).toList();
     }
 
     @Transactional
+    @CacheEvict(cacheNames = "amenities", allEntries = true)
     public AmenityResponse create(AmenityRequest request) {
         if (amenityRepository.existsByNameIgnoreCase(request.name())) {
             throw new DuplicateResourceException("An amenity named '" + request.name() + "' already exists");
@@ -36,6 +40,7 @@ public class AmenityService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = "amenities", allEntries = true)
     public void delete(String id) {
         if (!amenityRepository.existsById(id)) {
             throw ResourceNotFoundException.of("Amenity", id);

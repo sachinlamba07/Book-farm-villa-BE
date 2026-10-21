@@ -13,6 +13,9 @@ import com.bookfarmvilla.repository.PropertyRepository;
 import com.bookfarmvilla.repository.VendorRepository;
 import com.bookfarmvilla.repository.ReviewRepository;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -38,6 +41,7 @@ public class AiPropertySearchService {
         return searchPropertiesWithAlternatives(r, null, null).properties();
     }
 
+    @Transactional(readOnly = true)
     public PropertySearchResult searchPropertiesWithAlternatives(
             AiRequirements requirements,
             Double latitude,
@@ -117,7 +121,8 @@ public class AiPropertySearchService {
                 .and(hasLocation(location))
                 .and(hasCapacity(guests))
                 .and(hasType(type));
-        return propertyRepository.findAll(spec);
+        // Bound candidates to avoid loading the entire catalog into memory during an AI request.
+        return propertyRepository.findAll(spec, PageRequest.of(0, 200, Sort.by(Sort.Direction.DESC, "createdAt"))).getContent();
     }
 
     private List<Property> filterProperties(
@@ -175,6 +180,7 @@ public class AiPropertySearchService {
         return searchVendorsWithAlternatives(r).vendors();
     }
 
+    @Transactional(readOnly = true)
     public VendorSearchResult searchVendorsWithAlternatives(AiRequirements r) {
         VendorCategory category = parseVendorCategory(r.propertyType());
         List<String> relaxedFilters = new ArrayList<>();
@@ -206,7 +212,7 @@ public class AiPropertySearchService {
                 .where(hasVendorStatus(ListingStatus.ACTIVE))
                 .and(hasVendorCity(location))
                 .and(hasVendorCategory(category));
-        return vendorRepository.findAll(spec);
+        return vendorRepository.findAll(spec, PageRequest.of(0, 200, Sort.by(Sort.Direction.DESC, "createdAt"))).getContent();
     }
 
     private PropertyType parsePropertyType(String value) {

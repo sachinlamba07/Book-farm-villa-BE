@@ -45,6 +45,7 @@ public class PartnerService {
         return toResponse(saved);
     }
 
+    @Transactional(readOnly = true)
     public PageResponse<PartnerResponse> findAll(PartnerStatus status, Pageable pageable) {
         Page<Partner> page = status != null
                 ? partnerRepository.findByStatus(status, pageable)

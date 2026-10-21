@@ -15,6 +15,8 @@ public record PropertyCardBaseRow(
         String address,
         Integer capacity,
         BigDecimal startingPrice,
-        BigDecimal endingPrice
+        BigDecimal endingPrice,
+        Double ratingAverage,
+        Long ratingCount
 ) {
 }

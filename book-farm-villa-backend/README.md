@@ -259,3 +259,26 @@ src/main/java/com/bookfarmvilla/
 - Point `DB_URL`/`DB_USERNAME`/`DB_PASSWORD` at a managed Postgres instance (Neon, Supabase, Railway).
 - Set `CORS_ALLOWED_ORIGINS` to your deployed frontend's URL(s), comma-separated if more than one. To call the API from local development, also include `http://localhost:3000` or `http://localhost:5173`, whichever port the frontend uses.
 - Always override `JWT_SECRET` and `SEED_ADMIN_PASSWORD` in production — the defaults are for local dev only.
+
+
+## API performance cache
+
+Public property searches/cards/details, vendor searches/details, amenities, and published blog reads use a bounded Caffeine in-memory cache (up to 500 entries per cache, 5-minute write TTL). Listing mutations evict affected cache groups; review mutations also evict listing/detail caches because ratings are included in their responses. This is an instance-local cache: on Render Free it warms after requests and is cleared whenever the process restarts or sleeps. It does not keep a Render service awake and it is not shared between multiple backend instances. If you scale to multiple instances, move to a shared cache such as Redis and retain explicit invalidation.
+
+The JPA property image/amenity and vendor image collections use Hibernate batch fetching to reduce lazy-loading query counts on detail/list response mapping. Cache hit rates and production response latency should be measured after deployment before tuning TTL or cache capacity.
+
+
+## Performance and production configuration
+
+- Public read-heavy results use bounded Caffeine caches. They are local to each application instance and are invalidated on property, vendor, amenity, blog, and review writes. With multiple Render instances, expect cache differences until TTL expiry; use a shared cache only when multi-instance consistency is needed.
+- Cache TTLs: amenities 30 minutes; listing/card queries 60 seconds; details and public blog content 5 minutes; review lists 2 minutes. Authenticated/admin and AI responses are not cached.
+- `DB_POOL_MAX_SIZE` defaults to 4 and `DB_POOL_MIN_IDLE` to 0 for a small Neon plan. Tune only after checking Neon connection limits and actual concurrency.
+- `SERVER_TOMCAT_MAX_THREADS` defaults to 30 to keep memory/thread use bounded on Render Free. `JAVA_TOOL_OPTIONS` sets container-aware heap sizing.
+- Flyway V9 is additive: it adds rating aggregate columns and indexes, backfills aggregate values, and maintains aggregates with a database trigger. Existing columns are not removed. Review aggregates are currently internal storage and do not alter API response JSON.
+- Public GET cache headers are short-lived (30 seconds browser, 60 seconds shared cache). Do not add personalized data to these public routes without revisiting cache policy.
+- AI calls use a 5-second connect timeout and 10-second read timeout. The rate limiter keys on the remote address and periodically cleans expired entries; if trusted proxy IP support is required, configure it at the server/proxy boundary rather than trusting arbitrary client headers.
+- `ApiTimingFilter` logs method, path, status, and duration for API requests without logging request bodies. Actuator exposes health, metrics, and Prometheus endpoints; ensure your deployment security policy protects operational endpoints as appropriate.
+
+## Verification notes
+
+Run `mvn clean verify` with Java 21 and access to Maven Central before deployment. This workspace did not include Maven or Docker, so the package and Flyway migration could not be executed here. Validate V9 on a Neon staging database first, then deploy and compare p50/p95 API latency, DB query count, cache hit rate, and Render cold-start latency. A cold start includes platform wake-up time and is distinct from in-process request latency.

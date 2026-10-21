@@ -35,6 +35,7 @@ public class BookingService {
         this.propertyRepository = propertyRepository;
     }
 
+    @Transactional(readOnly = true)
     public PageResponse<BookingResponse> search(
             PropertyType listingType, BookingStatus status, PaymentStatus paymentStatus, String keyword, Pageable pageable
     ) {
@@ -47,6 +48,7 @@ public class BookingService {
         return PageResponse.from(page.map(this::toResponse));
     }
 
+    @Transactional(readOnly = true)
     public BookingResponse findById(String id) {
         return toResponse(getOrThrow(id));
     }

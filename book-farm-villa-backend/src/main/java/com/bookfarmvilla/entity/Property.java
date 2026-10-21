@@ -17,6 +17,7 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.BatchSize;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -67,12 +68,19 @@ public class Property extends BaseEntity {
     @Column(name = "contact_phone", nullable = false)
     private String contactPhone;
 
+    @Column(name = "rating_avg", nullable = false)
+    private Double ratingAverage = 0.0;
+
+    @Column(name = "rating_count", nullable = false)
+    private Long ratingCount = 0L;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ListingStatus status = ListingStatus.ACTIVE;
 
     @OneToMany(mappedBy = "property", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @OrderBy("isPrimary DESC")
+    @BatchSize(size = 50)
     private List<PropertyImage> images = new ArrayList<>();
 
     @ManyToMany(fetch = FetchType.LAZY)
@@ -81,5 +89,6 @@ public class Property extends BaseEntity {
             joinColumns = @JoinColumn(name = "property_id"),
             inverseJoinColumns = @JoinColumn(name = "amenity_id")
     )
+    @BatchSize(size = 50)
     private Set<Amenity> amenities = new HashSet<>();
 }

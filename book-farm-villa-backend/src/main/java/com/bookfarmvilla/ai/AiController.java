@@ -1,6 +1,8 @@
 package com.bookfarmvilla.ai;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,6 +13,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/ai")
 public class AiController {
+    private static final Logger log = LoggerFactory.getLogger(AiController.class);
 
     private final AiChatService chatService;
     private final AiRateLimiter rateLimiter;
@@ -27,24 +30,24 @@ public class AiController {
     ) {
         long startedAt = System.nanoTime();
         String clientKey = resolveClientKey(httpRequest);
-        System.out.println("[AI] Chat request started for client " + clientKey);
+        log.debug("AI chat request started");
 
         if (!rateLimiter.allow(clientKey)) {
-            System.out.println("[AI] Rate limit reached for client " + clientKey);
+            log.warn("AI rate limit reached");
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                     .body(Map.of("message", "AI usage limit reached for a moment. Please try again shortly."));
         }
 
         try {
             ResponseEntity<?> response = ResponseEntity.ok(chatService.chat(request));
-            System.out.println("[AI] Chat request completed in " + elapsedMillis(startedAt) + " ms");
+            log.info("AI chat request completed in {} ms", elapsedMillis(startedAt));
             return response;
         } catch (AiProviderException ex) {
-            System.err.println("[AI] Provider error after " + elapsedMillis(startedAt) + " ms.");
+            log.warn("AI provider error after {} ms", elapsedMillis(startedAt));
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                     .body(Map.of("message", "The AI service is temporarily unavailable. Please try again shortly."));
         } catch (Exception ex) {
-            System.err.println("[AI] Chat request failed after " + elapsedMillis(startedAt) + " ms.");
+            log.error("AI chat request failed after {} ms", elapsedMillis(startedAt), ex);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("message", "Unable to process the AI chat request."));
         }
@@ -55,10 +58,7 @@ public class AiController {
     }
 
     private String resolveClientKey(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
-        }
-        return request.getRemoteAddr();
+        // Do not trust X-Forwarded-For supplied by clients. Configure trusted proxy handling explicitly if needed.
+        return request.getRemoteAddr() == null ? "unknown" : request.getRemoteAddr();
     }
 }

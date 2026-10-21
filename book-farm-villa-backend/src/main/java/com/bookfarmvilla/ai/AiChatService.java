@@ -9,6 +9,8 @@ import com.bookfarmvilla.repository.PropertyRepository;
 import com.bookfarmvilla.repository.VendorRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,6 +18,7 @@ import java.util.Locale;
 
 @Service
 public class AiChatService {
+    private static final Logger log = LoggerFactory.getLogger(AiChatService.class);
 
     private static final String EXTRACTION_SYSTEM = """
             You are the requirement extractor for BookFarmVilla.
@@ -93,7 +96,7 @@ public class AiChatService {
     public AiChatResponse chat(AiChatRequest request) {
         long extractionStartedAt = System.nanoTime();
         AiIntent extracted = extractIntent(request);
-        System.out.println("[AI] Intent extraction completed in " + elapsedMillis(extractionStartedAt) + " ms");
+        log.info("AI intent extraction completed in {} ms", elapsedMillis(extractionStartedAt));
         AiRequirements requirements = mergeRequirements(request.message(), extracted.requirements());
 
         long searchStartedAt = System.nanoTime();
@@ -123,7 +126,7 @@ public class AiChatService {
                     .orElseThrow(() -> ResourceNotFoundException.of("Vendor", request.vendorId()));
             vendors = List.of(searchService.toVendorResponseForAi(vendor));
         }
-        System.out.println("[AI] Listing search completed in " + elapsedMillis(searchStartedAt) + " ms");
+        log.info("AI listing search completed in {} ms", elapsedMillis(searchStartedAt));
 
         String verifiedData = buildVerifiedData(properties, vendors);
         String prompt = buildResponsePrompt(
@@ -134,10 +137,10 @@ public class AiChatService {
         try {
             message = providerRouter.current().generate(RESPONSE_SYSTEM, prompt);
         } catch (AiProviderException ex) {
-            System.err.println("[AI] Response generation failed; using verified-data fallback.");
+            log.warn("AI response generation failed; using verified-data fallback");
             message = fallbackMessage(request.message(), requirements, properties, vendors, relaxedFilters);
         }
-        System.out.println("[AI] Response generation stage completed in " + elapsedMillis(responseStartedAt) + " ms");
+        log.info("AI response generation completed in {} ms", elapsedMillis(responseStartedAt));
 
         boolean nearMeRequested = containsNearMe(request.message());
         boolean coordinatesSupplied = request.latitude() != null && request.longitude() != null;
@@ -178,7 +181,7 @@ public class AiChatService {
             String raw = providerRouter.current().generate(EXTRACTION_SYSTEM, prompt);
             return parseIntent(raw);
         } catch (Exception ex) {
-            System.err.println("[AI] Intent extraction failed; using deterministic fallback.");
+            log.warn("AI intent extraction failed; using deterministic fallback");
             return deterministicIntent(request.message());
         }
     }
@@ -226,7 +229,7 @@ public class AiChatService {
                     firstNonNull(latest.date(), prior.date())
             );
         } catch (Exception ex) {
-            System.err.println("[AI] Previously understood requirements could not be parsed.");
+            log.warn("Previously understood AI requirements could not be parsed");
             return latest;
         }
     }
