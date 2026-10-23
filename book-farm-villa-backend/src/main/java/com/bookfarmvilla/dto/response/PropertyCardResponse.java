@@ -20,6 +20,7 @@ public record PropertyCardResponse(
         BigDecimal startingPrice,
         BigDecimal endingPrice,
         Double averageRating,
+        Long reviewCount,
         List<String> imageUrls
 ) {
 }

@@ -74,7 +74,7 @@ public class PropertyCardService {
         List<String> propertyIds = page.getContent().stream().map(PropertyCardBaseRow::id).toList();
 
         if (propertyIds.isEmpty()) {
-            return PageResponse.from(page.map(property -> toCard(property, Set.of(), List.of(), null)));
+            return PageResponse.from(page.map(property -> toCard(property, Set.of(), List.of(), null, null)));
         }
 
         Map<String, List<String>> imageUrls = new HashMap<>();
@@ -91,7 +91,8 @@ public class PropertyCardService {
                 property,
                 amenities.getOrDefault(property.id(), Set.of()),
                 imageUrls.getOrDefault(property.id(), List.of()),
-                property.ratingCount() != null && property.ratingCount() > 0 ? property.ratingAverage() : null
+                property.ratingCount() != null && property.ratingCount() > 0 ? property.ratingAverage() : null,
+                property.ratingCount()
         )));
     }
 
@@ -99,13 +100,14 @@ public class PropertyCardService {
             PropertyCardBaseRow property,
             Set<String> amenities,
             List<String> imageUrls,
-            Double averageRating
+            Double averageRating,
+            Long reviewCount
     ) {
         return new PropertyCardResponse(
                 property.id(), property.slug(), property.title(), property.type(),
                 property.latitude(), property.longitude(), property.city(), property.address(),
                 property.capacity(), amenities, property.startingPrice(), property.endingPrice(),
-                averageRating, imageUrls
+                averageRating, reviewCount, imageUrls
         );
     }
 }
