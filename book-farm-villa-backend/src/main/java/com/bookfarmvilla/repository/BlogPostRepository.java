@@ -26,16 +26,16 @@ public interface BlogPostRepository extends JpaRepository<BlogPost, String>, Jpa
                 b.category, b.authorName, b.publishedAt)
             from BlogPost b
             where b.status = :status
-              and (:category is null or lower(b.category) = lower(:category))
-              and (:keyword is null or lower(b.title) like concat('%', lower(:keyword), '%')
-                   or lower(coalesce(b.excerpt, '')) like concat('%', lower(:keyword), '%'))
+              and (cast(:category as String) is null or lower(b.category) = lower(cast(:category as String)))
+              and (cast(:keyword as String) is null or lower(b.title) like concat('%', lower(cast(:keyword as String)), '%')
+                   or lower(coalesce(b.excerpt, '')) like concat('%', lower(cast(:keyword as String)), '%'))
             """,
             countQuery = """
             select count(b) from BlogPost b
             where b.status = :status
-              and (:category is null or lower(b.category) = lower(:category))
-              and (:keyword is null or lower(b.title) like concat('%', lower(:keyword), '%')
-                   or lower(coalesce(b.excerpt, '')) like concat('%', lower(:keyword), '%'))
+              and (cast(:category as String) is null or lower(b.category) = lower(cast(:category as String)))
+              and (cast(:keyword as String) is null or lower(b.title) like concat('%', lower(cast(:keyword as String)), '%')
+                   or lower(coalesce(b.excerpt, '')) like concat('%', lower(cast(:keyword as String)), '%'))
             """)
     Page<BlogPostSummaryResponse> findPublishedSummaries(
             @Param("status") BlogPostStatus status,

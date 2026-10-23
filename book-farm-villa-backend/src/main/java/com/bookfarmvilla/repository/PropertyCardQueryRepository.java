@@ -19,16 +19,16 @@ public interface PropertyCardQueryRepository extends Repository<com.bookfarmvill
             from Property p
             where p.status = com.bookfarmvilla.entity.enums.ListingStatus.ACTIVE
               and p.type in :types
-              and (:city is null or lower(p.city) = lower(:city))
-              and (:keyword is null or lower(p.title) like concat('%', lower(:keyword), '%'))
+              and (cast(:city as String) is null or lower(p.city) = lower(cast(:city as String)))
+              and (cast(:keyword as String) is null or lower(p.title) like concat('%', lower(cast(:keyword as String)), '%'))
               and (:minCapacity is null or p.capacity >= :minCapacity)
             """,
             countQuery = """
             select count(p) from Property p
             where p.status = com.bookfarmvilla.entity.enums.ListingStatus.ACTIVE
               and p.type in :types
-              and (:city is null or lower(p.city) = lower(:city))
-              and (:keyword is null or lower(p.title) like concat('%', lower(:keyword), '%'))
+              and (cast(:city as String) is null or lower(p.city) = lower(cast(:city as String)))
+              and (cast(:keyword as String) is null or lower(p.title) like concat('%', lower(cast(:keyword as String)), '%'))
               and (:minCapacity is null or p.capacity >= :minCapacity)
             """)
     Page<PropertyCardBaseRow> findCards(
