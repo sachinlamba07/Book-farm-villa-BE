@@ -58,6 +58,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
                         // Public service-only uptime check; does not depend on the database
                         .requestMatchers(HttpMethod.GET, "/api/uptime").permitAll()
+                        .requestMatchers(HttpMethod.HEAD, "/api/uptime").permitAll()
                         // Public - browsing listings
                         .requestMatchers(HttpMethod.GET, "/api/properties/**", "/api/v2/properties/**", "/api/vendors/**", "/api/amenities/**").permitAll()
                         // Public - published blog posts
