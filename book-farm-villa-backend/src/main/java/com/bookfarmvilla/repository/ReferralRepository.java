@@ -16,6 +16,6 @@ public interface ReferralRepository extends JpaRepository<Referral, String> {
 
     Optional<Referral> findByReferralNumber(String referralNumber);
 
-    @Query(value = "SELECT MAX(CAST(SUBSTRING(r.referral_number, 14) AS INTEGER)) FROM referrals r WHERE r.referral_number LIKE CONCAT('BFV-REF-', ?0, '-%')", nativeQuery = true)
+    @Query(value = "SELECT MAX(CAST(SUBSTRING(r.referral_number, 14) AS INTEGER)) FROM referrals r WHERE r.referral_number LIKE CONCAT('BFV-REF-', ?1, '-%')", nativeQuery = true)
     Integer findMaxSequenceByYear(int year);
 }
