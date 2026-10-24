@@ -1,7 +1,5 @@
 package com.bookfarmvilla.service;
 
-import com.bookfarmvilla.dto.request.ReferralCreateRequest;
-import com.bookfarmvilla.dto.request.ReferralUpdateRequest;
 import com.bookfarmvilla.dto.response.ReferralResponse;
 import com.bookfarmvilla.entity.Referral;
 import com.bookfarmvilla.entity.enums.ReferralStatus;
@@ -13,6 +11,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -21,23 +20,35 @@ public class ReferralService {
     private final ReferralRepository referralRepository;
 
     /**
-     * Create a new referral (public endpoint - no auth required).
-     * Backend generates the referral number.
+     * Public referral submission - no auth required.
+     * Backend generates the referral number and sets initial status.
+     * Accepts a map of form fields.
      */
     @Transactional
-    public ReferralResponse create(ReferralCreateRequest request) {
+    public ReferralResponse create(Map<String, String> request) {
         // Generate referral number: BFV-REF-YYYY-XXXXXX
         String referralNumber = generateReferralNumber();
 
         Referral referral = new Referral();
         referral.setReferralNumber(referralNumber);
-        referral.setCustomerMobile(request.customerMobile());
-        referral.setReferrerMobile(request.referrerMobile());
-        referral.setEvent(request.event());
-        referral.setDescription(request.description());
-        referral.setCity(request.city());
-        referral.setPropertyId(request.propertyId());
-        referral.setBookingDate(request.bookingDate());
+        referral.setReferrerName(request.get("referrerName"));
+        referral.setReferrerPhone(request.get("referrerPhone"));
+        referral.setReferrerEmail(request.get("referrerEmail"));
+        referral.setRefereeName(request.get("refereeName"));
+        referral.setRefereePhone(request.get("refereePhone"));
+        referral.setRefereeEmail(request.get("refereeEmail"));
+        referral.setPropertyType(request.get("propertyType"));
+        referral.setMessage(request.get("message"));
+
+        // Parse event date if provided
+        if (request.containsKey("eventDate") && request.get("eventDate") != null && !request.get("eventDate").isBlank()) {
+            try {
+                referral.setEventDate(LocalDate.parse(request.get("eventDate")));
+            } catch (Exception e) {
+                // Keep null if invalid date format
+            }
+        }
+
         referral.setStatus(ReferralStatus.NEW);
         referral.setBookingAmount(null);
         referral.setRewardAmount(calculateReward(null));
@@ -47,15 +58,19 @@ public class ReferralService {
     }
 
     /**
-     * List referrals with pagination, newest first, with optional status filter.
+     * List referrals with pagination, newest first.
+     * Optional status filter and keyword search across referrer/referee name and phone.
      */
     @Transactional(readOnly = true)
     public ReferralResponse.PageResponse findAll(
             String status,
+            String keyword,
             Pageable pageable
     ) {
         Page<Referral> page;
-        if (status != null && !status.isBlank()) {
+        if (keyword != null && !keyword.isBlank()) {
+            page = referralRepository.findByKeyword(keyword, pageable);
+        } else if (status != null && !status.isBlank()) {
             ReferralStatus refStatus = ReferralStatus.valueOf(status.toUpperCase());
             page = referralRepository.findByStatus(refStatus, pageable);
         } else {
@@ -85,27 +100,35 @@ public class ReferralService {
     /**
      * Update referral: status, booking date, and booking amount.
      * Only admins/staff should call this.
+     * Accepts optional query params.
      */
     @Transactional
-    public ReferralResponse update(String id, ReferralUpdateRequest request) {
+    public ReferralResponse update(String id, String status, String bookingDateStr, Double bookingAmount) {
         Referral referral = referralRepository.findById(id)
                 .orElseThrow(() -> ResourceNotFoundException.of("Referral", id));
 
         // Update status if provided
-        if (request.status() != null) {
-            ReferralStatus newStatus = ReferralStatus.valueOf(request.status().toUpperCase());
+        if (status != null && !status.isBlank()) {
+            ReferralStatus newStatus = ReferralStatus.valueOf(status.toUpperCase());
             referral.setStatus(newStatus);
         }
 
         // Update booking date if provided
-        if (request.bookingDate() != null) {
-            referral.setBookingDate(request.bookingDate());
+        if (bookingDateStr != null && !bookingDateStr.isBlank()) {
+            try {
+                referral.setBookingDate(LocalDate.parse(bookingDateStr));
+            } catch (Exception e) {
+                // Ignore invalid date
+            }
         }
 
         // Update booking amount if provided - recalculate reward
-        if (request.bookingAmount() != null) {
-            referral.setBookingAmount(request.bookingAmount());
-            referral.setRewardAmount(calculateReward(request.bookingAmount()));
+        if (bookingAmount != null && bookingAmount > 0) {
+            referral.setBookingAmount(bookingAmount);
+            referral.setRewardAmount(calculateReward(bookingAmount));
+        } else {
+            referral.setBookingAmount(null);
+            referral.setRewardAmount(0.0);
         }
 
         Referral updated = referralRepository.save(referral);

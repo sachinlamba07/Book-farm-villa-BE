@@ -28,7 +28,7 @@ import java.util.Set;
 public class PropertyCardService {
 
     private static final int MAX_PAGE_SIZE = 100;
-    private static final Set<String> SORT_FIELDS = Set.of("title", "city", "startingPrice", "capacity", "createdAt");
+    private static final Set<String> SORT_FIELDS = Set.of("title", "city", "startingPrice", "capacity", "createdAt", "ratingAverage");
 
     private final PropertyCardQueryRepository propertyCardQueryRepository;
     private final PropertyRepository propertyRepository;

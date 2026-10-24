@@ -27,8 +27,8 @@ import java.util.Set;
 public class PropertyV2Controller {
 
     private static final Logger log = LoggerFactory.getLogger(PropertyV2Controller.class);
-    private static final Set<String> SORT_FIELDS = Set.of("title", "city", "startingPrice", "capacity", "status", "createdAt");
-    private static final Set<String> CARD_SORT_FIELDS = Set.of("title", "city", "startingPrice", "capacity", "createdAt");
+    private static final Set<String> SORT_FIELDS = Set.of("title", "city", "startingPrice", "capacity", "status", "createdAt", "ratingAverage");
+    private static final Set<String> CARD_SORT_FIELDS = Set.of("title", "city", "startingPrice", "capacity", "createdAt", "ratingAverage");
 
     private final PropertyService propertyService;
     private final PropertyCardService propertyCardService;

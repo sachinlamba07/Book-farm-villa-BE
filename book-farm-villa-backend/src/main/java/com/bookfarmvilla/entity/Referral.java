@@ -18,23 +18,35 @@ public class Referral extends BaseEntity {
     @Column(name = "customer_mobile", nullable = false, length = 30)
     private String customerMobile;
 
-    @Column(name = "referrer_mobile", length = 30)
-    private String referrerMobile;
+    @Column(name = "referrer_name", nullable = false, length = 100)
+    private String referrerName;
 
-    @Column(name = "event", length = 100)
-    private String event;
+    @Column(name = "referrer_phone", nullable = false, length = 30)
+    private String referrerPhone;
 
-    @Column(name = "description", length = 500)
-    private String description;
+    @Column(name = "referrer_email", length = 100)
+    private String referrerEmail;
 
-    @Column(name = "city", length = 100)
-    private String city;
+    @Column(name = "referee_name", nullable = false, length = 100)
+    private String refereeName;
 
-    @Column(name = "property_id", length = 36)
-    private String propertyId;
+    @Column(name = "referee_phone", nullable = false, length = 30)
+    private String refereePhone;
+
+    @Column(name = "referee_email", length = 100)
+    private String refereeEmail;
+
+    @Column(name = "property_type", length = 50)
+    private String propertyType;
+
+    @Column(name = "event_date")
+    private LocalDate eventDate;
 
     @Column(name = "booking_date")
     private LocalDate bookingDate;
+
+    @Column(name = "message", columnDefinition = "TEXT")
+    private String message;
 
     @Column(name = "status", nullable = false)
     @Enumerated(EnumType.STRING)
@@ -45,4 +57,7 @@ public class Referral extends BaseEntity {
 
     @Column(name = "reward_amount")
     private Double rewardAmount;
+
+    @Column(name = "property_id", length = 36)
+    private String propertyId;
 }
