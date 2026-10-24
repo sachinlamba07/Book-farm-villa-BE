@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Set;
 
 @RestController
-@RequestMapping("/api/referrals")
+@RequestMapping({"/api/referrals", "/api/referral"})
 public class ReferralController {
 
     private static final Logger log = LoggerFactory.getLogger(ReferralController.class);
