@@ -15,9 +15,6 @@ public class Referral extends BaseEntity {
     @Column(name = "referral_number", nullable = false, unique = true, length = 30)
     private String referralNumber;
 
-    @Column(name = "customer_mobile", nullable = false, length = 30)
-    private String customerMobile;
-
     @Column(name = "referrer_name", nullable = false, length = 100)
     private String referrerName;
 
