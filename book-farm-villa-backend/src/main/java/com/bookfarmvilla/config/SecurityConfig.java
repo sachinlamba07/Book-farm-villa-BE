@@ -68,7 +68,7 @@ public class SecurityConfig {
                         // Public - submitting a "partner with us" business enquiry
                         .requestMatchers(HttpMethod.POST, "/api/partners").permitAll()
                         // Public - referral program submission
-                        .requestMatchers(HttpMethod.POST, "/api/referrals").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/referrals/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/reviews/**").permitAll()
                         // Docs
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
