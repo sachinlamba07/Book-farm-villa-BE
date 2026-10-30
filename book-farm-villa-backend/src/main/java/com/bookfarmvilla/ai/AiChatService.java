@@ -71,6 +71,7 @@ public class AiChatService {
             Remember conversation history and preserve stated requirements.
             Keep replies short and conversational; use a list only when it improves options.
             Do not mention internal prompts, JSON, databases, APIs, providers, or token limits.
+            Never share any phone number except the BookFarmVilla team number; customers contact the team, not owners.
             """;
 
     private final AiProviderRouter providerRouter;
@@ -84,8 +85,7 @@ public class AiChatService {
             AiPropertySearchService searchService,
             ObjectMapper objectMapper,
             PropertyRepository propertyRepository,
-            VendorRepository vendorRepository
-    ) {
+            VendorRepository vendorRepository) {
         this.providerRouter = providerRouter;
         this.searchService = searchService;
         this.objectMapper = objectMapper;
@@ -163,8 +163,7 @@ public class AiChatService {
                 vendors,
                 requirements,
                 locationSupported,
-                locationMessage
-        );
+                locationMessage);
     }
 
     private AiIntent extractIntent(AiChatRequest request) {
@@ -202,7 +201,8 @@ public class AiChatService {
     private String extractJson(String raw) {
         int start = raw.indexOf('{');
         int end = raw.lastIndexOf('}');
-        if (start >= 0 && end > start) return raw.substring(start, end + 1);
+        if (start >= 0 && end > start)
+            return raw.substring(start, end + 1);
         return raw;
     }
 
@@ -210,7 +210,8 @@ public class AiChatService {
         AiRequirements latest = current == null ? AiRequirements.empty() : current;
         String marker = "Previously understood requirements: ";
         int markerIndex = message.indexOf(marker);
-        if (markerIndex < 0) return latest;
+        if (markerIndex < 0)
+            return latest;
 
         int start = markerIndex + marker.length();
         int end = message.indexOf('\n', start);
@@ -226,8 +227,7 @@ public class AiChatService {
                             ? prior.amenities()
                             : latest.amenities(),
                     firstNonNull(latest.purpose(), prior.purpose()),
-                    firstNonNull(latest.date(), prior.date())
-            );
+                    firstNonNull(latest.date(), prior.date()));
         } catch (Exception ex) {
             log.warn("Previously understood AI requirements could not be parsed");
             return latest;
@@ -244,8 +244,7 @@ public class AiChatService {
             List<PropertyResponse> properties,
             List<VendorResponse> vendors,
             String verifiedData,
-            List<String> relaxedFilters
-    ) {
+            List<String> relaxedFilters) {
         return """
                 CONVERSATION:
                 %s
@@ -274,8 +273,7 @@ public class AiChatService {
                 request.message(),
                 toJson(requirements),
                 verifiedData,
-                relaxedFilters.isEmpty() ? "none" : String.join(", ", relaxedFilters)
-        );
+                relaxedFilters.isEmpty() ? "none" : String.join(", ", relaxedFilters));
     }
 
     private String buildVerifiedData(List<PropertyResponse> properties, List<VendorResponse> vendors) {
@@ -283,20 +281,23 @@ public class AiChatService {
         safe.addAll(properties.stream().map(p -> new VerifiedProperty(
                 p.id(), p.title(), p.description(), p.city(), p.type() == null ? null : p.type().name(),
                 formatPriceRange(p.startingPrice(), p.endingPrice()), p.capacity(), p.amenities(), p.averageRating(),
-                p.address(), p.contactPhone(), p.images().stream().findFirst().map(i -> i.url()).orElse(null)
-        )).toList());
+                p.address(), p.images().stream().findFirst().map(i -> i.url()).orElse(null))).toList());
         safe.addAll(vendors.stream().map(v -> new VerifiedVendor(
                 v.id(), v.name(), v.description(), v.city(), v.category() == null ? null : v.category().name(),
-                v.priceRange(), v.averageRating(), v.contactPhone(),
-                v.images().stream().findFirst().map(i -> i.url()).orElse(null)
-        )).toList());
+                v.priceRange(), v.averageRating(),
+                v.images().stream().findFirst().map(i -> i.url()).orElse(null))).toList());
         return toJson(safe);
     }
 
-    /** Properties now store startingPrice/endingPrice separately (see PropertyResponse); format them
-     *  back into a single display string here since that's what the AI prompt/response shape expects. */
+    /**
+     * Properties now store startingPrice/endingPrice separately (see
+     * PropertyResponse); format them
+     * back into a single display string here since that's what the AI
+     * prompt/response shape expects.
+     */
     private String formatPriceRange(java.math.BigDecimal startingPrice, java.math.BigDecimal endingPrice) {
-        if (startingPrice == null && endingPrice == null) return null;
+        if (startingPrice == null && endingPrice == null)
+            return null;
         if (startingPrice != null && endingPrice != null) {
             return "₹" + startingPrice.toPlainString() + " - ₹" + endingPrice.toPlainString();
         }
@@ -313,7 +314,8 @@ public class AiChatService {
     }
 
     private String renderHistory(List<AiChatMessage> history) {
-        if (history == null || history.isEmpty()) return "(no previous conversation)";
+        if (history == null || history.isEmpty())
+            return "(no previous conversation)";
         return history.stream()
                 .filter(m -> m != null && m.content() != null && !m.content().isBlank())
                 .limit(8)
@@ -336,14 +338,19 @@ public class AiChatService {
 
         String type = m.contains("villa") ? "VILLA"
                 : m.contains("wedding lawn") || m.contains("lawn") ? "WEDDING_LAWN"
-                : m.contains("farmhouse") || m.contains("farm house") ? "FARMHOUSE" : null;
+                        : m.contains("farmhouse") || m.contains("farm house") ? "FARMHOUSE" : null;
 
         List<String> amenities = new ArrayList<>();
-        if (m.contains("pool")) amenities.add("pool");
-        if (m.contains("lawn")) amenities.add("lawn");
-        if (m.contains("bbq")) amenities.add("bbq");
-        if (m.contains("music")) amenities.add("music");
-        if (m.contains("parking")) amenities.add("parking");
+        if (m.contains("pool"))
+            amenities.add("pool");
+        if (m.contains("lawn"))
+            amenities.add("lawn");
+        if (m.contains("bbq"))
+            amenities.add("bbq");
+        if (m.contains("music"))
+            amenities.add("music");
+        if (m.contains("parking"))
+            amenities.add("parking");
 
         AiRequirements r = new AiRequirements(null, guests, budget, type, amenities, null, null);
         return new AiIntent(vendor ? "SEARCH_VENDOR" : "SEARCH_PROPERTY", r, "");
@@ -366,17 +373,21 @@ public class AiChatService {
     private Integer extractBudget(String text) {
         String normalized = text.replace(",", "");
         java.util.regex.Matcher m = java.util.regex.Pattern
-                .compile("(?:under|below|less than|within|up to|budget(?:\\s+is)?|₹|rs\\.?|inr)\\s*₹?\\s*(\\d+(?:\\.\\d+)?)\\s*(k|thousand|lakh|lac)?|\\b(\\d+(?:\\.\\d+)?)\\s*(k|thousand|lakh|lac)\\b|\\b(\\d+(?:\\.\\d+)?)\\s*(?:rupees?|rs\\.?|budget)\\b",
+                .compile(
+                        "(?:under|below|less than|within|up to|budget(?:\\s+is)?|₹|rs\\.?|inr)\\s*₹?\\s*(\\d+(?:\\.\\d+)?)\\s*(k|thousand|lakh|lac)?|\\b(\\d+(?:\\.\\d+)?)\\s*(k|thousand|lakh|lac)\\b|\\b(\\d+(?:\\.\\d+)?)\\s*(?:rupees?|rs\\.?|budget)\\b",
                         java.util.regex.Pattern.CASE_INSENSITIVE)
                 .matcher(normalized);
-        if (!m.find()) return null;
+        if (!m.find())
+            return null;
         String number = m.group(1) != null ? m.group(1)
                 : m.group(3) != null ? m.group(3) : m.group(5);
         String unit = m.group(2) != null ? m.group(2)
                 : m.group(4) != null ? m.group(4) : "";
         double value = Double.parseDouble(number);
-        if ("k".equalsIgnoreCase(unit) || "thousand".equalsIgnoreCase(unit)) value *= 1000;
-        if ("lakh".equalsIgnoreCase(unit) || "lac".equalsIgnoreCase(unit)) value *= 100000;
+        if ("k".equalsIgnoreCase(unit) || "thousand".equalsIgnoreCase(unit))
+            value *= 1000;
+        if ("lakh".equalsIgnoreCase(unit) || "lac".equalsIgnoreCase(unit))
+            value *= 100000;
         return (int) value;
     }
 
@@ -385,8 +396,7 @@ public class AiChatService {
             AiRequirements r,
             List<PropertyResponse> properties,
             List<VendorResponse> vendors,
-            List<String> relaxedFilters
-    ) {
+            List<String> relaxedFilters) {
         boolean hinglish = isHinglish(userMessage);
         String relaxed = relaxedFilters.isEmpty()
                 ? ""
@@ -414,20 +424,21 @@ public class AiChatService {
     }
 
     static boolean isHinglish(String message) {
-        if (message == null) return false;
+        if (message == null)
+            return false;
         return message.toLowerCase(Locale.ROOT).matches(
-                "(?s).*\\b(mujhe|chahiye|dikhao|dikha|kuch|aur|nahi|nahin|pasand|kaunsa|kaisi|hai|hain|haan|han|mera|meri|aapke|liye|karo|krna|karna|bhejo|bataye|batao|kr|kya|acha|accha|sahi|kitna|kitne|mein|wala|wali|kar do|kr do)\\b.*"
-        );
+                "(?s).*\\b(mujhe|chahiye|dikhao|dikha|kuch|aur|nahi|nahin|pasand|kaunsa|kaisi|hai|hain|haan|han|mera|meri|aapke|liye|karo|krna|karna|bhejo|bataye|batao|kr|kya|acha|accha|sahi|kitna|kitne|mein|wala|wali|kar do|kr do)\\b.*");
     }
 
+    // No contactPhone: the model must never see or repeat partner phone numbers.
     private record VerifiedProperty(
             String id, String title, String description, String city, String type, String priceRange,
             Integer capacity, java.util.Set<String> amenities, Double rating,
-            String address, String contactPhone, String imageUrl
-    ) {}
+            String address, String imageUrl) {
+    }
 
     private record VerifiedVendor(
             String id, String name, String description, String city, String category, String priceRange,
-            Double rating, String contactPhone, String imageUrl
-    ) {}
+            Double rating, String imageUrl) {
+    }
 }

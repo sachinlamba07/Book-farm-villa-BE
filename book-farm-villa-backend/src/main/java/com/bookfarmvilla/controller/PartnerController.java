@@ -47,9 +47,9 @@ public class PartnerController {
     @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
     public ResponseEntity<PageResponse<PartnerResponse>> findAll(
             @RequestParam(required = false) PartnerStatus status,
-            @PageableDefault(size = 20) Pageable pageable
-    ) {
-        log.info("GET /api/partners - status={}, page={}, size={}", status, pageable.getPageNumber(), pageable.getPageSize());
+            @PageableDefault(size = 20) Pageable pageable) {
+        log.info("GET /api/partners - status={}, page={}, size={}", status, pageable.getPageNumber(),
+                pageable.getPageSize());
         return ResponseEntity.ok(partnerService.findAll(status, pageable));
     }
 

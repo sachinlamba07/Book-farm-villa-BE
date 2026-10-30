@@ -19,7 +19,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: validate   # schema is owned by Flyway migrations, not Hibernate
+      ddl-auto: validate # schema is owned by Flyway migrations, not Hibernate
     show-sql: false
     open-in-view: false
     properties:
@@ -54,18 +54,26 @@ server:
     accept-count: ${SERVER_TOMCAT_ACCEPT_COUNT:50}
 
 app:
+  environment: ${APP_ENV:development} # set APP_ENV=production on Render
   notifications:
     email-to: ${EMAIL_TO:info@bookfarmvilla.com}
     email-from: ${EMAIL_FROM:}
     resend-api-key: ${RESEND_API_KEY:}
   jwt:
     secret: ${JWT_SECRET:this-is-a-dev-only-secret-change-me-in-production-min-32-chars}
-    expiration-ms: ${JWT_EXPIRATION_MS:86400000}   # 24 hours
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000} # 24 hours
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
   seed-admin:
     email: ${SEED_ADMIN_EMAIL:admin@bookfarmvilla.com}
     password: ${SEED_ADMIN_PASSWORD:ChangeMe123!}
+  auth:
+    public-registration-enabled: ${PUBLIC_REGISTRATION_ENABLED:false}
+  cloudinary:
+    cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+    api-key: ${CLOUDINARY_API_KEY:}
+    api-secret: ${CLOUDINARY_API_SECRET:}
+    folder: ${CLOUDINARY_FOLDER:bookfarmvilla}
 
 springdoc:
   api-docs:
@@ -81,7 +89,6 @@ management:
   health:
     mail:
       enabled: false
-
 
 # AI assistant. Keep provider selection server-side; never expose API keys to the frontend.
 ai:

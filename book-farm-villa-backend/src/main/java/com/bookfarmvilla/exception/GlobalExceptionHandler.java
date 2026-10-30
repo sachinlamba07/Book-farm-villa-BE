@@ -20,6 +20,9 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -33,8 +36,10 @@ import java.util.stream.Collectors;
  * 5xx (server) errors are logged at ERROR with the full stack trace.
  *
  * For unexpected 5xx errors the client gets a generic message by default. Set
- * {@code app.error.include-details=true} (env: ERROR_INCLUDE_DETAILS) to return the
- * real exception class + message instead - useful in development, avoid in production.
+ * {@code app.error.include-details=true} (env: ERROR_INCLUDE_DETAILS) to return
+ * the
+ * real exception class + message instead - useful in development, avoid in
+ * production.
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -81,11 +86,18 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex, HttpServletRequest req) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        boolean anonymous = auth == null || auth instanceof AnonymousAuthenticationToken || !auth.isAuthenticated();
+        if (anonymous) {
+            // No or expired token: 401 lets the admin panel send the user to login.
+            return clientError(HttpStatus.UNAUTHORIZED, "Authentication required", ex, req);
+        }
         return clientError(HttpStatus.FORBIDDEN, "You do not have permission to perform this action", ex, req);
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<ErrorResponse> handleDataIntegrity(DataIntegrityViolationException ex, HttpServletRequest req) {
+    public ResponseEntity<ErrorResponse> handleDataIntegrity(DataIntegrityViolationException ex,
+            HttpServletRequest req) {
         return clientError(HttpStatus.CONFLICT,
                 "This operation violates a data constraint (e.g. a duplicate unique value)", ex, req);
     }
@@ -96,42 +108,46 @@ public class GlobalExceptionHandler {
                 .collect(Collectors.toMap(
                         FieldError::getField,
                         fe -> fe.getDefaultMessage() == null ? "Invalid value" : fe.getDefaultMessage(),
-                        (a, b) -> a
-                ));
+                        (a, b) -> a));
         log.warn("{} {} -> 400 Validation failed: {}", req.getMethod(), req.getRequestURI(), fieldErrors);
         ErrorResponse body = ErrorResponse.ofValidation(
                 HttpStatus.BAD_REQUEST.value(),
                 HttpStatus.BAD_REQUEST.getReasonPhrase(),
                 "Validation failed for one or more fields",
                 req.getRequestURI(),
-                fieldErrors
-        );
+                fieldErrors);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<ErrorResponse> handleConstraintViolation(ConstraintViolationException ex, HttpServletRequest req) {
+    public ResponseEntity<ErrorResponse> handleConstraintViolation(ConstraintViolationException ex,
+            HttpServletRequest req) {
         return clientError(HttpStatus.BAD_REQUEST, "Validation failed: " + ex.getMessage(), ex, req);
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<ErrorResponse> handleUnreadableBody(HttpMessageNotReadableException ex, HttpServletRequest req) {
+    public ResponseEntity<ErrorResponse> handleUnreadableBody(HttpMessageNotReadableException ex,
+            HttpServletRequest req) {
         return clientError(HttpStatus.BAD_REQUEST, "Malformed or unreadable request body", ex, req);
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
-    public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex, HttpServletRequest req) {
+    public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex,
+            HttpServletRequest req) {
         String message = "Invalid value '" + ex.getValue() + "' for parameter '" + ex.getName() + "'";
         return clientError(HttpStatus.BAD_REQUEST, message, ex, req);
     }
 
     @ExceptionHandler(MissingServletRequestParameterException.class)
-    public ResponseEntity<ErrorResponse> handleMissingParam(MissingServletRequestParameterException ex, HttpServletRequest req) {
-        return clientError(HttpStatus.BAD_REQUEST, "Missing required parameter '" + ex.getParameterName() + "'", ex, req);
+    public ResponseEntity<ErrorResponse> handleMissingParam(MissingServletRequestParameterException ex,
+            HttpServletRequest req) {
+        return clientError(HttpStatus.BAD_REQUEST, "Missing required parameter '" + ex.getParameterName() + "'", ex,
+                req);
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
-    public ResponseEntity<ErrorResponse> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex, HttpServletRequest req) {
+    public ResponseEntity<ErrorResponse> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex,
+            HttpServletRequest req) {
         return clientError(HttpStatus.METHOD_NOT_ALLOWED, ex.getMessage(), ex, req);
     }
 
@@ -157,14 +173,16 @@ public class GlobalExceptionHandler {
     }
 
     /** 4xx: expected client mistakes - WARN, no stack trace. */
-    private ResponseEntity<ErrorResponse> clientError(HttpStatus status, String message, Exception ex, HttpServletRequest req) {
+    private ResponseEntity<ErrorResponse> clientError(HttpStatus status, String message, Exception ex,
+            HttpServletRequest req) {
         log.warn("{} {} -> {} {}: {} ({})", req.getMethod(), req.getRequestURI(),
                 status.value(), status.getReasonPhrase(), message, ex.getClass().getSimpleName());
         return build(status, message, req);
     }
 
     /** 5xx: server-side failures - ERROR with the full stack trace. */
-    private ResponseEntity<ErrorResponse> serverError(HttpStatus status, String message, Exception ex, HttpServletRequest req) {
+    private ResponseEntity<ErrorResponse> serverError(HttpStatus status, String message, Exception ex,
+            HttpServletRequest req) {
         log.error("{} {} -> {} {}: {}", req.getMethod(), req.getRequestURI(),
                 status.value(), status.getReasonPhrase(), ex.getMessage(), ex);
         String responseMessage = includeDetails
