@@ -11,7 +11,10 @@ import org.springframework.context.annotation.Configuration;
 import java.time.Duration;
 import java.util.List;
 
-/** Bounded instance-local caches; use shared cache only when running multiple instances. */
+/**
+ * Bounded instance-local caches; use shared cache only when running multiple
+ * instances.
+ */
 @Configuration
 @EnableCaching
 public class CacheConfig {
@@ -25,13 +28,14 @@ public class CacheConfig {
                 cache("propertyCards", 256, Duration.ofSeconds(60)),
                 cache("propertyDetails", 256, Duration.ofMinutes(5)),
                 cache("propertyV2Details", 256, Duration.ofMinutes(5)),
+                cache("propertyCities", 4, Duration.ofMinutes(30)),
                 cache("vendorSearch", 128, Duration.ofSeconds(60)),
                 cache("vendorDetails", 256, Duration.ofMinutes(5)),
+                cache("vendorCities", 4, Duration.ofMinutes(30)),
                 cache("publishedBlogs", 128, Duration.ofMinutes(5)),
                 cache("publishedBlogDetails", 256, Duration.ofMinutes(5)),
                 cache("propertyReviews", 256, Duration.ofMinutes(2)),
-                cache("vendorReviews", 256, Duration.ofMinutes(2))
-        ));
+                cache("vendorReviews", 256, Duration.ofMinutes(2))));
         return manager;
     }
 

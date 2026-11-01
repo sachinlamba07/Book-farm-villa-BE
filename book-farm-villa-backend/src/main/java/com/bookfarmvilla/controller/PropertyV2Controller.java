@@ -18,6 +18,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Set;
 
 @RestController
@@ -50,6 +51,12 @@ public class PropertyV2Controller {
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         Pageable sortedPageable = ListSort.apply(pageable, sortBy, sortDirection, CARD_SORT_FIELDS);
         return ResponseEntity.ok(propertyCardService.findCards(types, city, keyword, minCapacity, sortedPageable));
+    }
+
+    /** Distinct cities of ACTIVE properties, for the public city filter. */
+    @GetMapping("/cities")
+    public ResponseEntity<List<String>> cities() {
+        return ResponseEntity.ok(propertyService.findActiveCities());
     }
 
     @GetMapping

@@ -1,7 +1,7 @@
 package com.bookfarmvilla.repository;
 
-import com.bookfarmvilla.entity.Property;
 import com.bookfarmvilla.dto.response.PropertyCardAmenityRow;
+import com.bookfarmvilla.entity.Property;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -20,4 +20,12 @@ public interface PropertyRepository extends JpaRepository<Property, String>, Jpa
             order by property.id, amenity.name
             """)
     List<PropertyCardAmenityRow> findCardAmenities(@Param("propertyIds") List<String> propertyIds);
+
+    /** Distinct cities of ACTIVE properties, for the city filter dropdown. */
+    @Query("""
+            select distinct p.city from Property p
+            where p.status = com.bookfarmvilla.entity.enums.ListingStatus.ACTIVE
+            order by p.city
+            """)
+    List<String> findActiveCities();
 }

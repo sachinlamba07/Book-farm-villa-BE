@@ -19,6 +19,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Set;
 
 @RestController
@@ -52,6 +53,12 @@ public class VendorController {
         PageResponse<VendorResponse> result = vendorService.search(
                 city, category, effectiveStatus, keyword, sortedPageable);
         return ResponseEntity.ok(staff ? result : result.map(VendorResponse::publicView));
+    }
+
+    /** Distinct cities of ACTIVE vendors, for the public city filter. */
+    @GetMapping("/cities")
+    public ResponseEntity<List<String>> cities() {
+        return ResponseEntity.ok(vendorService.findActiveCities());
     }
 
     @GetMapping("/{id}")
