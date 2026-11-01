@@ -130,7 +130,7 @@ public class PropertyService {
         property.setSlug(resolveSlug(property, request.slug()));
         property.setOriginalPropertyName(request.originalPropertyName());
         property.setDescription(request.description());
-        property.setType(request.type());
+        property.setType(request.type().canonical());
         property.setAddress(request.address());
         property.setLatitude(request.latitude());
         property.setLongitude(request.longitude());

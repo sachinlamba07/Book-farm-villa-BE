@@ -84,7 +84,7 @@ public class BookingService {
     private void applyRequest(Booking booking, BookingRequest request) {
         booking.setCustomerName(request.customerName());
         booking.setCustomerPhone(request.customerPhone());
-        booking.setListingType(request.listingType());
+        booking.setListingType(request.listingType().canonical());
         booking.setBookingDate(request.bookingDate());
         booking.setAmount(request.amount());
         booking.setAdvanceAmount(request.advanceAmount() != null ? request.advanceAmount() : BigDecimal.ZERO);

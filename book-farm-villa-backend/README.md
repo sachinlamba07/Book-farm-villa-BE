@@ -89,7 +89,9 @@ the database.
 | PUT | `/properties/{id}` | ADMIN, STAFF |
 | DELETE | `/properties/{id}` | ADMIN |
 
-`type` is one of `FARMHOUSE`, `VILLA`, `WEDDING_LAWN`, `AIRBNB`. `status` is `ACTIVE` or `INACTIVE`.
+`type` is one of `FARMHOUSE`, `VILLA`, `WEDDING_LAWN`, `HOLIDAY_HOME`. The legacy
+`AIRBNB` value is still accepted for existing clients and is returned as `HOLIDAY_HOME`.
+`status` is `ACTIVE` or `INACTIVE`.
 Each property also carries `latitude`/`longitude` (exact map coordinates) and
 `startingPrice`/`endingPrice` (numeric, replacing the old free-text `priceRange` field).
 The cards endpoint accepts multiple `types` and returns only card fields: ID, slug, title,

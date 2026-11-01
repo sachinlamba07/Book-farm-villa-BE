@@ -41,9 +41,9 @@ public class AiChatService {
             Use integer INR for budget. Convert 15k to 15000 and 1.5 lakh to 150000.
             Recognize Hindi/Hinglish and English.
             For "near me", do not invent a city; set location to null.
-            propertyType may be FARMHOUSE, VILLA, WEDDING_LAWN, or a vendor category.
-            For an Airbnb-style stay or other venue that does not map to those types, leave
-            propertyType null and search verified listings without inventing a new type.
+            propertyType may be FARMHOUSE, VILLA, WEDDING_LAWN, HOLIDAY_HOME, or a vendor category.
+            For another venue that does not map to those types, leave propertyType null and
+            search verified listings without inventing a new type.
             Classify the user's actual intent, including short searches, refinements,
             questions about one verified listing, comparisons, enquiry requests, small talk,
             vendor searches, and off-topic questions.

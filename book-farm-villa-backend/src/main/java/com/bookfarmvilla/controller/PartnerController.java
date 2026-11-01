@@ -1,6 +1,7 @@
 package com.bookfarmvilla.controller;
 
 import com.bookfarmvilla.dto.request.PartnerRequest;
+import com.bookfarmvilla.dto.request.PartnerStatusUpdateRequest;
 import com.bookfarmvilla.dto.response.PageResponse;
 import com.bookfarmvilla.dto.response.PartnerResponse;
 import com.bookfarmvilla.entity.enums.PartnerStatus;
@@ -17,6 +18,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -53,6 +55,17 @@ public class PartnerController {
         log.info("GET /api/partners - status={}, hasKeyword={}, page={}, size={}", status,
                 keyword != null && !keyword.isBlank(), pageable.getPageNumber(), pageable.getPageSize());
         return ResponseEntity.ok(partnerService.findAll(status, keyword, pageable));
+    }
+
+    @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
+    public ResponseEntity<PartnerResponse> updateStatus(
+            @PathVariable String id,
+            @Valid @RequestBody PartnerStatusUpdateRequest request
+    ) {
+        log.info("PATCH /api/partners/{}/status - newStatus={}", id, request.status());
+        PartnerResponse updated = partnerService.updateStatus(id, request.status());
+        return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{id}")

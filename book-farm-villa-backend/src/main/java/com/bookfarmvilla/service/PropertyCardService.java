@@ -23,12 +23,13 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class PropertyCardService {
 
     private static final int MAX_PAGE_SIZE = 100;
-    private static final Set<String> SORT_FIELDS = Set.of("title", "city", "startingPrice", "capacity", "createdAt", "ratingAverage");
+    private static final Set<String> SORT_FIELDS = Set.of("id", "title", "city", "startingPrice", "capacity", "createdAt", "ratingAverage");
 
     private final PropertyCardQueryRepository propertyCardQueryRepository;
     private final PropertyRepository propertyRepository;
@@ -45,12 +46,13 @@ public class PropertyCardService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(cacheNames = "propertyCards", key = "T(java.util.Objects).toString(#types, '') + '|' + T(java.util.Objects).toString(#city, '') + '|' + T(java.util.Objects).toString(#keyword, '') + '|' + T(java.util.Objects).toString(#minCapacity, '') + '|' + #pageable.toString()")
+    @Cacheable(cacheNames = "propertyCards", key = "T(java.util.Objects).toString(#types, '') + '|' + T(java.util.Objects).toString(#city, '') + '|' + T(java.util.Objects).toString(#keyword, '') + '|' + T(java.util.Objects).toString(#minCapacity, '') + '|' + T(java.util.Objects).toString(#maxCapacity, '') + '|' + #pageable.toString()")
     public PageResponse<PropertyCardResponse> findCards(
             Set<PropertyType> types,
             String city,
             String keyword,
             Integer minCapacity,
+            Integer maxCapacity,
             Pageable pageable
     ) {
         pageable.getSort().forEach(order -> {
@@ -64,12 +66,16 @@ public class PropertyCardService {
                 pageable.getSort()
         );
         Set<PropertyType> effectiveTypes = (types == null || types.isEmpty())
-                ? Set.of(PropertyType.values()) : types;
+                ? Set.of(PropertyType.FARMHOUSE, PropertyType.VILLA, PropertyType.WEDDING_LAWN,
+                        PropertyType.HOLIDAY_HOME)
+                : types.stream()
+                        .map(PropertyType::canonical)
+                        .collect(Collectors.toSet());
         Page<PropertyCardBaseRow> page = propertyCardQueryRepository.findCards(
                 effectiveTypes,
                 city == null || city.isBlank() ? null : city.trim(),
                 keyword == null || keyword.isBlank() ? null : keyword.trim(),
-                minCapacity, boundedPageable
+                minCapacity, maxCapacity, boundedPageable
         );
         List<String> propertyIds = page.getContent().stream().map(PropertyCardBaseRow::id).toList();
 

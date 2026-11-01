@@ -61,6 +61,16 @@ public class PartnerService {
     }
 
     @Transactional
+    public PartnerResponse updateStatus(String id, PartnerStatus status) {
+        Partner partner = partnerRepository.findById(id)
+                .orElseThrow(() -> ResourceNotFoundException.of("Partner", id));
+        partner.setStatus(status);
+        Partner updated = partnerRepository.save(partner);
+        log.info("Updated partner request id={} status={}", id, status);
+        return toResponse(updated);
+    }
+
+    @Transactional
     public void delete(String id) {
         if (!partnerRepository.existsById(id)) {
             throw ResourceNotFoundException.of("Partner", id);

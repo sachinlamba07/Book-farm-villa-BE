@@ -20,21 +20,30 @@ public interface PropertyCardQueryRepository extends Repository<com.bookfarmvill
             where p.status = com.bookfarmvilla.entity.enums.ListingStatus.ACTIVE
               and p.type in :types
               and (cast(:city as String) is null or lower(p.city) = lower(cast(:city as String)))
-              and (cast(:keyword as String) is null or lower(p.title) like concat('%', lower(cast(:keyword as String)), '%'))
+              and (cast(:keyword as String) is null
+                   or lower(p.title) like concat('%', lower(cast(:keyword as String)), '%')
+                   or lower(p.city) like concat('%', lower(cast(:keyword as String)), '%')
+                   or lower(coalesce(p.address, '')) like concat('%', lower(cast(:keyword as String)), '%'))
               and (:minCapacity is null or p.capacity >= :minCapacity)
+              and (:maxCapacity is null or p.capacity <= :maxCapacity)
             """,
             countQuery = """
             select count(p) from Property p
             where p.status = com.bookfarmvilla.entity.enums.ListingStatus.ACTIVE
               and p.type in :types
               and (cast(:city as String) is null or lower(p.city) = lower(cast(:city as String)))
-              and (cast(:keyword as String) is null or lower(p.title) like concat('%', lower(cast(:keyword as String)), '%'))
+              and (cast(:keyword as String) is null
+                   or lower(p.title) like concat('%', lower(cast(:keyword as String)), '%')
+                   or lower(p.city) like concat('%', lower(cast(:keyword as String)), '%')
+                   or lower(coalesce(p.address, '')) like concat('%', lower(cast(:keyword as String)), '%'))
               and (:minCapacity is null or p.capacity >= :minCapacity)
+              and (:maxCapacity is null or p.capacity <= :maxCapacity)
             """)
     Page<PropertyCardBaseRow> findCards(
             @Param("types") Set<PropertyType> types,
             @Param("city") String city,
             @Param("keyword") String keyword,
             @Param("minCapacity") Integer minCapacity,
+            @Param("maxCapacity") Integer maxCapacity,
             Pageable pageable);
 }

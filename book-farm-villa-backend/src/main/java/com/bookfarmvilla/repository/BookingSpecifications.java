@@ -13,7 +13,8 @@ public final class BookingSpecifications {
 
     public static Specification<Booking> hasListingType(PropertyType type) {
         if (type == null) return null;
-        return (root, query, cb) -> cb.equal(root.get("listingType"), type);
+        PropertyType canonicalType = type.canonical();
+        return (root, query, cb) -> cb.equal(root.get("listingType"), canonicalType);
     }
 
     public static Specification<Booking> hasStatus(BookingStatus status) {

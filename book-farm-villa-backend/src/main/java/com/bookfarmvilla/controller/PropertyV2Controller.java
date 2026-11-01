@@ -46,11 +46,13 @@ public class PropertyV2Controller {
             @RequestParam(required = false) String city,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Integer minCapacity,
+            @RequestParam(required = false) Integer maxCapacity,
             @RequestParam(required = false) String sortBy,
             @RequestParam(required = false) String sortDirection,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         Pageable sortedPageable = ListSort.apply(pageable, sortBy, sortDirection, CARD_SORT_FIELDS);
-        return ResponseEntity.ok(propertyCardService.findCards(types, city, keyword, minCapacity, sortedPageable));
+        return ResponseEntity.ok(propertyCardService.findCards(
+                types, city, keyword, minCapacity, maxCapacity, sortedPageable));
     }
 
     /** Distinct cities of ACTIVE properties, for the public city filter. */
