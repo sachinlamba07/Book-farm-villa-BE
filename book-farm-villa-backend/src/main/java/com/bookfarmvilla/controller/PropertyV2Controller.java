@@ -5,21 +5,20 @@ import com.bookfarmvilla.dto.response.PropertyCardResponse;
 import com.bookfarmvilla.dto.response.PropertyV2Response;
 import com.bookfarmvilla.entity.enums.ListingStatus;
 import com.bookfarmvilla.entity.enums.PropertyType;
+import com.bookfarmvilla.exception.ResourceNotFoundException;
 import com.bookfarmvilla.service.PropertyCardService;
 import com.bookfarmvilla.service.PropertyService;
 import com.bookfarmvilla.util.ListSort;
+import com.bookfarmvilla.util.RequestRoles;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Set;
 
 @RestController
@@ -27,8 +26,10 @@ import java.util.Set;
 public class PropertyV2Controller {
 
     private static final Logger log = LoggerFactory.getLogger(PropertyV2Controller.class);
-    private static final Set<String> SORT_FIELDS = Set.of("title", "city", "startingPrice", "capacity", "status", "createdAt", "ratingAverage");
-    private static final Set<String> CARD_SORT_FIELDS = Set.of("title", "city", "startingPrice", "capacity", "createdAt", "ratingAverage");
+    private static final Set<String> SORT_FIELDS = Set.of("title", "city", "startingPrice", "capacity", "status",
+            "createdAt", "ratingAverage");
+    private static final Set<String> CARD_SORT_FIELDS = Set.of("title", "city", "startingPrice", "capacity",
+            "createdAt", "ratingAverage");
 
     private final PropertyService propertyService;
     private final PropertyCardService propertyCardService;
@@ -38,6 +39,7 @@ public class PropertyV2Controller {
         this.propertyCardService = propertyCardService;
     }
 
+    /** Cards already exclude contact details and only include ACTIVE listings. */
     @GetMapping("/cards")
     public ResponseEntity<PageResponse<PropertyCardResponse>> cards(
             @RequestParam(required = false) Set<PropertyType> types,
@@ -47,11 +49,16 @@ public class PropertyV2Controller {
             @RequestParam(required = false) Integer maxCapacity,
             @RequestParam(required = false) String sortBy,
             @RequestParam(required = false) String sortDirection,
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
-    ) {
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         Pageable sortedPageable = ListSort.apply(pageable, sortBy, sortDirection, CARD_SORT_FIELDS);
         return ResponseEntity.ok(propertyCardService.findCards(
                 types, city, keyword, minCapacity, maxCapacity, sortedPageable));
+    }
+
+    /** Distinct cities of ACTIVE properties, for the public city filter. */
+    @GetMapping("/cities")
+    public ResponseEntity<List<String>> cities() {
+        return ResponseEntity.ok(propertyService.findActiveCities());
     }
 
     @GetMapping
@@ -63,18 +70,25 @@ public class PropertyV2Controller {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String sortBy,
             @RequestParam(required = false) String sortDirection,
-            @PageableDefault(size = 20) Pageable pageable
-    ) {
+            @PageableDefault(size = 20) Pageable pageable) {
+        boolean staff = RequestRoles.isStaff();
+        ListingStatus effectiveStatus = staff ? status : ListingStatus.ACTIVE;
         Pageable sortedPageable = ListSort.apply(pageable, sortBy, sortDirection, SORT_FIELDS);
-        log.info("GET /api/v2/properties - city={}, type={}, status={}, minCapacity={}, keyword={}, sortBy={}, sortDirection={}, page={}, size={}",
-                city, type, status, minCapacity, keyword, sortBy, sortDirection,
-                sortedPageable.getPageNumber(), sortedPageable.getPageSize());
-        return ResponseEntity.ok(propertyService.searchV2(city, type, status, minCapacity, keyword, sortedPageable));
+        log.info("GET /api/v2/properties - city={}, type={}, status={}, staff={}", city, type, effectiveStatus, staff);
+
+        PageResponse<PropertyV2Response> result = propertyService.searchV2(
+                city, type, effectiveStatus, minCapacity, keyword, sortedPageable);
+        return ResponseEntity.ok(staff ? result : result.map(PropertyV2Response::publicView));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<PropertyV2Response> getById(@PathVariable String id) {
         log.info("GET /api/v2/properties/{}", id);
-        return ResponseEntity.ok(propertyService.findByIdV2(id));
+        PropertyV2Response property = propertyService.findByIdV2(id);
+        if (RequestRoles.isStaff())
+            return ResponseEntity.ok(property);
+        if (property.status() != ListingStatus.ACTIVE)
+            throw ResourceNotFoundException.of("Property", id);
+        return ResponseEntity.ok(property.publicView());
     }
 }

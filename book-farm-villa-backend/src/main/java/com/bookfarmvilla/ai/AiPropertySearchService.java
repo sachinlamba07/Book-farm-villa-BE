@@ -30,8 +30,7 @@ public class AiPropertySearchService {
     public AiPropertySearchService(
             PropertyRepository propertyRepository,
             VendorRepository vendorRepository,
-            ReviewRepository reviewRepository
-    ) {
+            ReviewRepository reviewRepository) {
         this.propertyRepository = propertyRepository;
         this.vendorRepository = vendorRepository;
         this.reviewRepository = reviewRepository;
@@ -45,8 +44,7 @@ public class AiPropertySearchService {
     public PropertySearchResult searchPropertiesWithAlternatives(
             AiRequirements requirements,
             Double latitude,
-            Double longitude
-    ) {
+            Double longitude) {
         PropertyType requestedType = parsePropertyType(requirements.propertyType());
         List<String> relaxedFilters = new ArrayList<>();
         List<Property> candidates = findProperties(
@@ -89,21 +87,18 @@ public class AiPropertySearchService {
                 (Property property) -> property.getStartingPrice() != null
                         ? property.getStartingPrice()
                         : property.getEndingPrice(),
-                Comparator.nullsLast(Comparator.naturalOrder())
-        );
+                Comparator.nullsLast(Comparator.naturalOrder()));
         if (requirements.budget() != null && !relaxedFilters.isEmpty()) {
             priceOrder = Comparator.comparing(
                     (Property property) -> distanceFromBudget(property, requirements.budget()),
-                    Comparator.nullsLast(Comparator.naturalOrder())
-            );
+                    Comparator.nullsLast(Comparator.naturalOrder()));
         }
 
         Comparator<Property> order = priceOrder;
         if (latitude != null && longitude != null) {
             Comparator<Property> distanceOrder = Comparator.comparing(
                     (Property property) -> distanceKm(latitude, longitude, property),
-                    Comparator.nullsLast(Comparator.naturalOrder())
-            );
+                    Comparator.nullsLast(Comparator.naturalOrder()));
             order = distanceOrder.thenComparing(priceOrder);
         }
 
@@ -121,15 +116,16 @@ public class AiPropertySearchService {
                 .and(hasLocation(location))
                 .and(hasCapacity(guests))
                 .and(hasType(type));
-        // Bound candidates to avoid loading the entire catalog into memory during an AI request.
-        return propertyRepository.findAll(spec, PageRequest.of(0, 200, Sort.by(Sort.Direction.DESC, "createdAt"))).getContent();
+        // Bound candidates to avoid loading the entire catalog into memory during an AI
+        // request.
+        return propertyRepository.findAll(spec, PageRequest.of(0, 200, Sort.by(Sort.Direction.DESC, "createdAt")))
+                .getContent();
     }
 
     private List<Property> filterProperties(
             List<Property> candidates,
             AiRequirements requirements,
-            boolean enforceBudget
-    ) {
+            boolean enforceBudget) {
         List<String> wantedAmenities = requirements.amenities() == null
                 ? List.of()
                 : requirements.amenities().stream()
@@ -147,7 +143,8 @@ public class AiPropertySearchService {
     }
 
     private boolean matchesAmenities(Property property, List<String> wanted) {
-        if (wanted.isEmpty()) return true;
+        if (wanted.isEmpty())
+            return true;
         Set<String> actual = property.getAmenities().stream()
                 .map(amenity -> normalise(amenity.getName()))
                 .collect(java.util.stream.Collectors.toSet());
@@ -166,13 +163,14 @@ public class AiPropertySearchService {
     }
 
     private Double distanceKm(double latitude, double longitude, Property property) {
-        if (property.getLatitude() == null || property.getLongitude() == null) return null;
+        if (property.getLatitude() == null || property.getLongitude() == null)
+            return null;
         double latitudeDelta = Math.toRadians(property.getLatitude() - latitude);
         double longitudeDelta = Math.toRadians(property.getLongitude() - longitude);
         double a = Math.sin(latitudeDelta / 2) * Math.sin(latitudeDelta / 2)
                 + Math.cos(Math.toRadians(latitude))
-                * Math.cos(Math.toRadians(property.getLatitude()))
-                * Math.sin(longitudeDelta / 2) * Math.sin(longitudeDelta / 2);
+                        * Math.cos(Math.toRadians(property.getLatitude()))
+                        * Math.sin(longitudeDelta / 2) * Math.sin(longitudeDelta / 2);
         return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
@@ -212,11 +210,13 @@ public class AiPropertySearchService {
                 .where(hasVendorStatus(ListingStatus.ACTIVE))
                 .and(hasVendorCity(location))
                 .and(hasVendorCategory(category));
-        return vendorRepository.findAll(spec, PageRequest.of(0, 200, Sort.by(Sort.Direction.DESC, "createdAt"))).getContent();
+        return vendorRepository.findAll(spec, PageRequest.of(0, 200, Sort.by(Sort.Direction.DESC, "createdAt")))
+                .getContent();
     }
 
     private PropertyType parsePropertyType(String value) {
-        if (value == null) return null;
+        if (value == null)
+            return null;
         return switch (value.trim().toUpperCase().replace(" ", "_")) {
             case "FARMHOUSE", "FARM_HOUSE" -> PropertyType.FARMHOUSE;
             case "VILLA" -> PropertyType.VILLA;
@@ -226,7 +226,8 @@ public class AiPropertySearchService {
     }
 
     private VendorCategory parseVendorCategory(String value) {
-        if (value == null) return null;
+        if (value == null)
+            return null;
         try {
             return VendorCategory.valueOf(value.trim().toUpperCase().replace(" ", "_"));
         } catch (Exception ignored) {
@@ -239,7 +240,8 @@ public class AiPropertySearchService {
     }
 
     private Specification<Property> hasLocation(String location) {
-        if (!hasText(location)) return null;
+        if (!hasText(location))
+            return null;
         List<String> terms = Arrays.stream(location.toLowerCase(Locale.ROOT).trim().split("\\s+"))
                 .filter(term -> !term.isBlank())
                 .toList();
@@ -248,19 +250,20 @@ public class AiPropertySearchService {
                     String query = "%" + term + "%";
                     return cb.or(
                             cb.like(cb.lower(root.get("city")), query),
-                            cb.like(cb.lower(root.get("address")), query)
-                    );
+                            cb.like(cb.lower(root.get("address")), query));
                 })
                 .toArray(jakarta.persistence.criteria.Predicate[]::new));
     }
 
     private Specification<Property> hasCapacity(Integer guests) {
-        if (guests == null) return null;
+        if (guests == null)
+            return null;
         return (root, query, cb) -> cb.greaterThanOrEqualTo(root.get("capacity"), guests);
     }
 
     private Specification<Property> hasType(PropertyType type) {
-        if (type == null) return null;
+        if (type == null)
+            return null;
         return (root, query, cb) -> cb.equal(root.get("type"), type);
     }
 
@@ -269,13 +272,15 @@ public class AiPropertySearchService {
     }
 
     private Specification<Vendor> hasVendorCity(String city) {
-        if (city == null || city.isBlank()) return null;
+        if (city == null || city.isBlank())
+            return null;
         String query = "%" + city.trim().toLowerCase(Locale.ROOT) + "%";
         return (root, criteriaQuery, cb) -> cb.like(cb.lower(root.get("city")), query);
     }
 
     private Specification<Vendor> hasVendorCategory(VendorCategory category) {
-        if (category == null) return null;
+        if (category == null)
+            return null;
         return (root, query, cb) -> cb.equal(root.get("category"), category);
     }
 
@@ -290,8 +295,7 @@ public class AiPropertySearchService {
     private boolean priceFitsBudget(
             java.math.BigDecimal startingPrice,
             java.math.BigDecimal endingPrice,
-            int budget
-    ) {
+            int budget) {
         java.math.BigDecimal maximumKnownPrice = endingPrice != null ? endingPrice : startingPrice;
         if (startingPrice != null) {
             return startingPrice.compareTo(java.math.BigDecimal.valueOf(budget)) <= 0;
@@ -302,14 +306,12 @@ public class AiPropertySearchService {
 
     public record PropertySearchResult(
             List<PropertyResponse> properties,
-            List<String> relaxedFilters
-    ) {
+            List<String> relaxedFilters) {
     }
 
     public record VendorSearchResult(
             List<VendorResponse> vendors,
-            List<String> relaxedFilters
-    ) {
+            List<String> relaxedFilters) {
     }
 
     public PropertyResponse toPropertyResponseForAi(Property p) {
@@ -317,19 +319,19 @@ public class AiPropertySearchService {
                 .map(i -> new PropertyImageResponse(i.getId(), i.getUrl(), i.isPrimary()))
                 .toList();
 
-        Double rating = reviewRepository.findByPropertyId(p.getId()).stream()
-                .mapToInt(r -> r.getRating())
-                .average()
-                .orElse(0);
+        // Stored aggregate (V9 trigger) instead of loading every review.
+        Double rating = p.getRatingCount() != null && p.getRatingCount() > 0 ? p.getRatingAverage() : null;
 
-        Set<String> amenities = p.getAmenities().stream().map(a -> a.getName()).collect(java.util.stream.Collectors.toSet());
+        Set<String> amenities = p.getAmenities().stream()
+                .map(a -> a.getName())
+                .collect(java.util.stream.Collectors.toSet());
 
+        // contactPhone is deliberately null: AI responses are public.
         return new PropertyResponse(
                 p.getId(), p.getSlug(), p.getTitle(), p.getDescription(), p.getType(), p.getAddress(), p.getCity(),
                 p.getLatitude(), p.getLongitude(), p.getStartingPrice(), p.getEndingPrice(),
-                p.getCapacity(), p.getContactPhone(), p.getStatus(), amenities,
-                images, rating, p.getCreatedAt(), p.getModifiedAt()
-        );
+                p.getCapacity(), null, p.getStatus(), amenities,
+                images, rating, p.getCreatedAt(), p.getModifiedAt());
     }
 
     public VendorResponse toVendorResponseForAi(Vendor v) {
@@ -337,15 +339,12 @@ public class AiPropertySearchService {
                 .map(i -> new VendorImageResponse(i.getId(), i.getUrl(), i.isPrimary()))
                 .toList();
 
-        Double rating = reviewRepository.findByVendorId(v.getId()).stream()
-                .mapToInt(r -> r.getRating())
-                .average()
-                .orElse(0);
+        Double rating = v.getRatingCount() != null && v.getRatingCount() > 0 ? v.getRatingAverage() : null;
 
+        // contactPhone is deliberately null: AI responses are public.
         return new VendorResponse(
                 v.getId(), v.getSlug(), v.getName(), v.getCategory(), v.getDescription(), v.getCity(),
-                v.getPriceRange(), v.getContactPhone(), v.getStatus(), images, rating,
-                v.getCreatedAt(), v.getModifiedAt()
-        );
+                v.getPriceRange(), null, v.getStatus(), images, rating,
+                v.getCreatedAt(), v.getModifiedAt());
     }
 }

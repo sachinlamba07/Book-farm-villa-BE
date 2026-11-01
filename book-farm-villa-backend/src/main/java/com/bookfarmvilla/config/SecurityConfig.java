@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -18,6 +19,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.time.Instant;
 import java.util.List;
 
 @Configuration
@@ -49,35 +51,45 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // Missing or expired token -> 401 JSON, so the admin panel can redirect to
+                // login.
+                .exceptionHandling(ex -> ex.authenticationEntryPoint((request, response, authException) -> {
+                    response.setStatus(401);
+                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                    response.getWriter().write("{\"timestamp\":\"" + Instant.now()
+                            + "\",\"status\":401,\"error\":\"Unauthorized\",\"message\":\"Authentication required\",\"path\":\""
+                            + request.getRequestURI() + "\"}");
+                }))
                 .authorizeHttpRequests(auth -> auth
-                         // Allow browser CORS preflight requests
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                         // Public AI assistant used by website visitors
+
+                        // Auth (register is further gated by app.auth.public-registration-enabled)
+                        .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/register").permitAll()
+
+                        // Public website features
                         .requestMatchers(HttpMethod.POST, "/api/ai/chat").permitAll()
-                        // Public - auth
-                        .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
-                        // Public service-only uptime check; does not depend on the database
                         .requestMatchers(HttpMethod.GET, "/api/uptime").permitAll()
                         .requestMatchers(HttpMethod.HEAD, "/api/uptime").permitAll()
-                        // Public - browsing listings
-                        .requestMatchers(HttpMethod.GET, "/api/properties/**", "/api/v2/properties/**", "/api/vendors/**", "/api/amenities/**").permitAll()
-                        // Public - published blog posts
-                        .requestMatchers(HttpMethod.GET, "/api/v1/blogs/**").permitAll()
-                        // Public - submitting a lead (call-me-back form) and reading reviews
-                        .requestMatchers(HttpMethod.POST, "/api/leads").permitAll()
-                        // Public - submitting a "partner with us" business enquiry
-                        .requestMatchers(HttpMethod.POST, "/api/partners").permitAll()
-                        // Public - referral program submission (both /api/referrals and /api/referral)
-                        .requestMatchers(HttpMethod.POST, "/api/referrals/**", "/api/referral/**").permitAll()
-                        // Also allow GET on referral paths for public access if needed
-                        .requestMatchers(HttpMethod.GET, "/api/referrals/**", "/api/referral/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/reviews/**").permitAll()
-                        // Docs
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/properties/**", "/api/v2/properties/**",
+                                "/api/vendors/**", "/api/amenities/**", "/api/v1/blogs/**")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/reviews/property/**", "/api/reviews/vendor/**")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/leads", "/api/partners").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/referral/submit", "/api/referrals/submit").permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/referral/banner", "/api/referral/strategy", "/api/referral/policy")
+                        .permitAll()
+
+                        // Docs and health
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
-                        .requestMatchers("/actuator/health").permitAll()
-                        // Everything else (write operations, lead management, staff creation) requires auth
-                        .anyRequest().authenticated()
-                )
+                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        .requestMatchers("/actuator/**").hasRole("ADMIN")
+
+                        // Everything else needs a login; @PreAuthorize then checks the role.
+                        .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

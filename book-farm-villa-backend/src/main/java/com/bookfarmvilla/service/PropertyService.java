@@ -16,13 +16,13 @@ import com.bookfarmvilla.repository.AmenityRepository;
 import com.bookfarmvilla.repository.PropertyRepository;
 import com.bookfarmvilla.repository.PropertySpecifications;
 import com.bookfarmvilla.util.PropertySlug;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
@@ -46,9 +46,10 @@ public class PropertyService {
     @Transactional(readOnly = true)
     @Cacheable(cacheNames = "propertySearch", key = "T(java.util.Objects).toString(#city, '') + '|' + T(java.util.Objects).toString(#type, '') + '|' + T(java.util.Objects).toString(#status, '') + '|' + T(java.util.Objects).toString(#minCapacity, '') + '|' + T(java.util.Objects).toString(#keyword, '') + '|' + #pageable.toString()")
     public PageResponse<PropertyResponse> search(
-            String city, PropertyType type, ListingStatus status, Integer minCapacity, String keyword, Pageable pageable
-    ) {
-        pageable = PageRequest.of(pageable.getPageNumber(), Math.min(pageable.getPageSize(), MAX_PAGE_SIZE), pageable.getSort());
+            String city, PropertyType type, ListingStatus status, Integer minCapacity, String keyword,
+            Pageable pageable) {
+        pageable = PageRequest.of(pageable.getPageNumber(), Math.min(pageable.getPageSize(), MAX_PAGE_SIZE),
+                pageable.getSort());
         Specification<Property> spec = Specification.where(PropertySpecifications.hasCity(city))
                 .and(PropertySpecifications.hasType(type))
                 .and(PropertySpecifications.hasStatus(status))
@@ -62,9 +63,10 @@ public class PropertyService {
     @Transactional(readOnly = true)
     @Cacheable(cacheNames = "propertyV2Search", key = "T(java.util.Objects).toString(#city, '') + '|' + T(java.util.Objects).toString(#type, '') + '|' + T(java.util.Objects).toString(#status, '') + '|' + T(java.util.Objects).toString(#minCapacity, '') + '|' + T(java.util.Objects).toString(#keyword, '') + '|' + #pageable.toString()")
     public PageResponse<PropertyV2Response> searchV2(
-            String city, PropertyType type, ListingStatus status, Integer minCapacity, String keyword, Pageable pageable
-    ) {
-        pageable = PageRequest.of(pageable.getPageNumber(), Math.min(pageable.getPageSize(), MAX_PAGE_SIZE), pageable.getSort());
+            String city, PropertyType type, ListingStatus status, Integer minCapacity, String keyword,
+            Pageable pageable) {
+        pageable = PageRequest.of(pageable.getPageNumber(), Math.min(pageable.getPageSize(), MAX_PAGE_SIZE),
+                pageable.getSort());
         Specification<Property> spec = Specification.where(PropertySpecifications.hasCity(city))
                 .and(PropertySpecifications.hasType(type))
                 .and(PropertySpecifications.hasStatus(status))
@@ -89,8 +91,16 @@ public class PropertyService {
         return toV2Response(property);
     }
 
+    /** Distinct cities that have at least one ACTIVE property. */
+    @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "propertyCities", key = "'active'")
+    public List<String> findActiveCities() {
+        return propertyRepository.findActiveCities();
+    }
+
     @Transactional
-    @CacheEvict(cacheNames = {"propertySearch", "propertyV2Search", "propertyCards", "propertyDetails", "propertyV2Details"}, allEntries = true)
+    @CacheEvict(cacheNames = { "propertySearch", "propertyV2Search", "propertyCards", "propertyDetails",
+            "propertyV2Details", "propertyCities" }, allEntries = true)
     public PropertyResponse create(PropertyRequest request) {
         Property property = new Property();
         property.setId(request.id()); // preserved if provided, generated in BaseEntity otherwise
@@ -99,7 +109,8 @@ public class PropertyService {
     }
 
     @Transactional
-    @CacheEvict(cacheNames = {"propertySearch", "propertyV2Search", "propertyCards", "propertyDetails", "propertyV2Details"}, allEntries = true)
+    @CacheEvict(cacheNames = { "propertySearch", "propertyV2Search", "propertyCards", "propertyDetails",
+            "propertyV2Details", "propertyCities" }, allEntries = true)
     public PropertyResponse update(String id, PropertyRequest request) {
         Property property = getOrThrow(id);
         applyRequest(property, request);
@@ -107,7 +118,8 @@ public class PropertyService {
     }
 
     @Transactional
-    @CacheEvict(cacheNames = {"propertySearch", "propertyV2Search", "propertyCards", "propertyDetails", "propertyV2Details"}, allEntries = true)
+    @CacheEvict(cacheNames = { "propertySearch", "propertyV2Search", "propertyCards", "propertyDetails",
+            "propertyV2Details", "propertyCities" }, allEntries = true)
     public void delete(String id) {
         propertyRepository.delete(getOrThrow(id));
     }
@@ -164,7 +176,6 @@ public class PropertyService {
                 property.getImages().add(image);
             }
         }
-
     }
 
     private Property getOrThrow(String id) {
@@ -202,24 +213,24 @@ public class PropertyService {
                 .collect(Collectors.toSet());
 
         Double avgRating = p.getRatingCount() != null && p.getRatingCount() > 0
-                ? p.getRatingAverage() : null;
+                ? p.getRatingAverage()
+                : null;
 
         return new PropertyResponse(
                 p.getId(), p.getSlug(), p.getTitle(), p.getDescription(), p.getType(), p.getAddress(), p.getCity(),
                 p.getLatitude(), p.getLongitude(), p.getStartingPrice(), p.getEndingPrice(),
                 p.getCapacity(), p.getContactPhone(), p.getStatus(),
-                amenityNames, images, avgRating, p.getCreatedAt(), p.getModifiedAt()
-        );
+                amenityNames, images, avgRating, p.getCreatedAt(), p.getModifiedAt());
     }
 
     private PropertyV2Response toV2Response(Property property) {
         PropertyResponse response = toResponse(property);
         return new PropertyV2Response(
-                response.id(), response.slug(), response.title(), property.getOriginalPropertyName(), response.description(),
+                response.id(), response.slug(), response.title(), property.getOriginalPropertyName(),
+                response.description(),
                 response.type(), response.address(), response.city(), response.latitude(), response.longitude(),
                 response.startingPrice(), response.endingPrice(), response.capacity(), response.contactPhone(),
                 response.status(), response.amenities(), response.images(), response.averageRating(),
-                response.createdAt(), response.modifiedAt()
-        );
+                response.createdAt(), response.modifiedAt());
     }
 }
