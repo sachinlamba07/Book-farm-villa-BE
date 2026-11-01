@@ -17,6 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -25,6 +26,8 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -50,7 +53,7 @@ class PropertyCardServiceTest {
                 28.5, 77.2, "Delhi", "South Delhi", 20, new BigDecimal("40000"), new BigDecimal("50000"), 4.5, 2L
         );
 
-        when(propertyCardQueryRepository.findCards(any(), any(), any(), any(), any(Pageable.class)))
+        when(propertyCardQueryRepository.findCards(any(), any(), any(), any(), any(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(property)));
         when(propertyImageRepository.findCardImages(anyList())).thenReturn(List.of(
                 new PropertyCardImageRow("property-id", "https://cdn.example/front.jpg", true),
@@ -64,6 +67,7 @@ class PropertyCardServiceTest {
                 null,
                 null,
                 null,
+                null,
                 PageRequest.of(0, 20)
         );
 
@@ -73,5 +77,49 @@ class PropertyCardServiceTest {
         assertEquals(Set.of("Swimming Pool"), card.amenities());
         assertEquals(4.5, card.averageRating());
         verify(propertyImageRepository).findCardImages(List.of("property-id"));
+    }
+
+    @Test
+    void acceptsIdAsTheStableSortTieBreaker() {
+        when(propertyCardQueryRepository.findCards(any(), any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        propertyCardService.findCards(
+                Set.of(PropertyType.FARMHOUSE),
+                null,
+                null,
+                null,
+                null,
+                PageRequest.of(0, 20, Sort.by(
+                        Sort.Order.asc("startingPrice"),
+                        Sort.Order.asc("id")
+                ))
+        );
+
+        verify(propertyCardQueryRepository).findCards(any(), any(), any(), any(), any(), any(Pageable.class));
+    }
+
+    @Test
+    void appliesMinimumAndMaximumCapacityFilters() {
+        when(propertyCardQueryRepository.findCards(any(), any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        propertyCardService.findCards(
+                Set.of(PropertyType.FARMHOUSE),
+                null,
+                null,
+                10,
+                20,
+                PageRequest.of(0, 20)
+        );
+
+        verify(propertyCardQueryRepository).findCards(
+                eq(Set.of(PropertyType.FARMHOUSE)),
+                isNull(),
+                isNull(),
+                eq(10),
+                eq(20),
+                any(Pageable.class)
+        );
     }
 }

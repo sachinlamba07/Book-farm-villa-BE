@@ -28,7 +28,7 @@ import java.util.Set;
 public class PropertyCardService {
 
     private static final int MAX_PAGE_SIZE = 100;
-    private static final Set<String> SORT_FIELDS = Set.of("title", "city", "startingPrice", "capacity", "createdAt", "ratingAverage");
+    private static final Set<String> SORT_FIELDS = Set.of("id", "title", "city", "startingPrice", "capacity", "createdAt", "ratingAverage");
 
     private final PropertyCardQueryRepository propertyCardQueryRepository;
     private final PropertyRepository propertyRepository;
@@ -45,12 +45,13 @@ public class PropertyCardService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(cacheNames = "propertyCards", key = "T(java.util.Objects).toString(#types, '') + '|' + T(java.util.Objects).toString(#city, '') + '|' + T(java.util.Objects).toString(#keyword, '') + '|' + T(java.util.Objects).toString(#minCapacity, '') + '|' + #pageable.toString()")
+    @Cacheable(cacheNames = "propertyCards", key = "T(java.util.Objects).toString(#types, '') + '|' + T(java.util.Objects).toString(#city, '') + '|' + T(java.util.Objects).toString(#keyword, '') + '|' + T(java.util.Objects).toString(#minCapacity, '') + '|' + T(java.util.Objects).toString(#maxCapacity, '') + '|' + #pageable.toString()")
     public PageResponse<PropertyCardResponse> findCards(
             Set<PropertyType> types,
             String city,
             String keyword,
             Integer minCapacity,
+            Integer maxCapacity,
             Pageable pageable
     ) {
         pageable.getSort().forEach(order -> {
@@ -69,7 +70,7 @@ public class PropertyCardService {
                 effectiveTypes,
                 city == null || city.isBlank() ? null : city.trim(),
                 keyword == null || keyword.isBlank() ? null : keyword.trim(),
-                minCapacity, boundedPageable
+                minCapacity, maxCapacity, boundedPageable
         );
         List<String> propertyIds = page.getContent().stream().map(PropertyCardBaseRow::id).toList();
 
