@@ -12,6 +12,7 @@ import com.bookfarmvilla.exception.ResourceNotFoundException;
 import com.bookfarmvilla.repository.LeadRepository;
 import com.bookfarmvilla.repository.PropertyRepository;
 import com.bookfarmvilla.repository.VendorRepository;
+import com.bookfarmvilla.util.SearchPatterns;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -31,8 +32,7 @@ public class LeadService {
             LeadRepository leadRepository,
             PropertyRepository propertyRepository,
             VendorRepository vendorRepository,
-            NotificationService notificationService
-    ) {
+            NotificationService notificationService) {
         this.leadRepository = leadRepository;
         this.propertyRepository = propertyRepository;
         this.vendorRepository = vendorRepository;
@@ -46,7 +46,8 @@ public class LeadService {
 
         if (hasProperty == hasVendor) {
             // both blank, or both set - either way that's invalid
-            throw new BadRequestException("A lead must reference exactly one property or one vendor, not both or neither");
+            throw new BadRequestException(
+                    "A lead must reference exactly one property or one vendor, not both or neither");
         }
 
         Lead lead = new Lead();
@@ -84,10 +85,16 @@ public class LeadService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<LeadResponse> findAll(LeadStatus status, Pageable pageable) {
-        Page<Lead> page = status != null
-                ? leadRepository.findByStatus(status, pageable)
-                : leadRepository.findAll(pageable);
+    public PageResponse<LeadResponse> findAll(LeadStatus status, String keyword, Pageable pageable) {
+        String pattern = SearchPatterns.contains(keyword);
+        Page<Lead> page;
+        if (pattern != null) {
+            page = leadRepository.search(status, pattern, pageable);
+        } else if (status != null) {
+            page = leadRepository.findByStatus(status, pageable);
+        } else {
+            page = leadRepository.findAll(pageable);
+        }
         return PageResponse.from(page.map(this::toResponse));
     }
 
@@ -115,7 +122,6 @@ public class LeadService {
                 lead.getMessage(),
                 lead.getStatus(),
                 lead.getCreatedAt(),
-                lead.getModifiedAt()
-        );
+                lead.getModifiedAt());
     }
 }

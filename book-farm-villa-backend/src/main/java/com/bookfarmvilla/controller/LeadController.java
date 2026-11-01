@@ -53,19 +53,23 @@ public class LeadController {
     @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
     public ResponseEntity<PageResponse<LeadResponse>> findAll(
             @RequestParam(required = false) LeadStatus status,
+            @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String sortBy,
             @RequestParam(required = false) String sortDirection,
-            @PageableDefault(size = 20) Pageable pageable
-    ) {
+            @PageableDefault(size = 20) Pageable pageable) {
         Pageable sortedPageable = ListSort.apply(pageable, sortBy, sortDirection, SORT_FIELDS);
-        log.info("GET /api/leads - status={}, sortBy={}, sortDirection={}, page={}, size={}",
-                status, sortBy, sortDirection, sortedPageable.getPageNumber(), sortedPageable.getPageSize());
-        return ResponseEntity.ok(leadService.findAll(status, sortedPageable));
+        // The keyword itself isn't logged: it may contain a customer's name or phone
+        // number.
+        log.info("GET /api/leads - status={}, hasKeyword={}, sortBy={}, page={}, size={}",
+                status, keyword != null && !keyword.isBlank(), sortBy,
+                sortedPageable.getPageNumber(), sortedPageable.getPageSize());
+        return ResponseEntity.ok(leadService.findAll(status, keyword, sortedPageable));
     }
 
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
-    public ResponseEntity<LeadResponse> updateStatus(@PathVariable String id, @Valid @RequestBody LeadStatusUpdateRequest request) {
+    public ResponseEntity<LeadResponse> updateStatus(@PathVariable String id,
+            @Valid @RequestBody LeadStatusUpdateRequest request) {
         log.info("PATCH /api/leads/{}/status - newStatus={}", id, request.status());
         LeadResponse updated = leadService.updateStatus(id, request.status());
         log.info("PATCH /api/leads/{}/status - updated", id);

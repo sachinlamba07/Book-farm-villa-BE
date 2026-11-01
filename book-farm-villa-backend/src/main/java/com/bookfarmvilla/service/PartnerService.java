@@ -7,6 +7,7 @@ import com.bookfarmvilla.entity.Partner;
 import com.bookfarmvilla.entity.enums.PartnerStatus;
 import com.bookfarmvilla.exception.ResourceNotFoundException;
 import com.bookfarmvilla.repository.PartnerRepository;
+import com.bookfarmvilla.util.SearchPatterns;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -46,10 +47,16 @@ public class PartnerService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<PartnerResponse> findAll(PartnerStatus status, Pageable pageable) {
-        Page<Partner> page = status != null
-                ? partnerRepository.findByStatus(status, pageable)
-                : partnerRepository.findAll(pageable);
+    public PageResponse<PartnerResponse> findAll(PartnerStatus status, String keyword, Pageable pageable) {
+        String pattern = SearchPatterns.contains(keyword);
+        Page<Partner> page;
+        if (pattern != null) {
+            page = partnerRepository.search(status, pattern, pageable);
+        } else if (status != null) {
+            page = partnerRepository.findByStatus(status, pageable);
+        } else {
+            page = partnerRepository.findAll(pageable);
+        }
         return PageResponse.from(page.map(this::toResponse));
     }
 
@@ -66,7 +73,6 @@ public class PartnerService {
         return new PartnerResponse(
                 p.getId(), p.getBusinessName(), p.getFullName(), p.getBusinessType(),
                 p.getCity(), p.getLocation(), p.getPhoneNumber(), p.getStatus(),
-                p.getCreatedAt(), p.getModifiedAt()
-        );
+                p.getCreatedAt(), p.getModifiedAt());
     }
 }

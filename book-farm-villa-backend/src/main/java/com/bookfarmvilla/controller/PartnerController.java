@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -47,10 +48,11 @@ public class PartnerController {
     @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
     public ResponseEntity<PageResponse<PartnerResponse>> findAll(
             @RequestParam(required = false) PartnerStatus status,
-            @PageableDefault(size = 20) Pageable pageable) {
-        log.info("GET /api/partners - status={}, page={}, size={}", status, pageable.getPageNumber(),
-                pageable.getPageSize());
-        return ResponseEntity.ok(partnerService.findAll(status, pageable));
+            @RequestParam(required = false) String keyword,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        log.info("GET /api/partners - status={}, hasKeyword={}, page={}, size={}", status,
+                keyword != null && !keyword.isBlank(), pageable.getPageNumber(), pageable.getPageSize());
+        return ResponseEntity.ok(partnerService.findAll(status, keyword, pageable));
     }
 
     @DeleteMapping("/{id}")

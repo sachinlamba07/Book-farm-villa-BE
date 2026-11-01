@@ -1,6 +1,7 @@
 package com.bookfarmvilla.repository;
 
 import com.bookfarmvilla.dto.response.PropertyCardAmenityRow;
+import com.bookfarmvilla.dto.response.PropertyTypeCountRow;
 import com.bookfarmvilla.entity.Property;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -28,4 +29,12 @@ public interface PropertyRepository extends JpaRepository<Property, String>, Jpa
             order by p.city
             """)
     List<String> findActiveCities();
+
+    /** Number of properties per type (all statuses), for the admin dashboard. */
+    @Query("""
+            select new com.bookfarmvilla.dto.response.PropertyTypeCountRow(p.type, count(p))
+            from Property p
+            group by p.type
+            """)
+    List<PropertyTypeCountRow> countGroupedByType();
 }
