@@ -221,6 +221,7 @@ public class AiPropertySearchService {
             case "FARMHOUSE", "FARM_HOUSE" -> PropertyType.FARMHOUSE;
             case "VILLA" -> PropertyType.VILLA;
             case "WEDDING_LAWN", "WEDDING_LAWNS", "LAWN" -> PropertyType.WEDDING_LAWN;
+            case "HOLIDAY_HOME", "HOLIDAY_HOMES", "AIRBNB", "AIRBNBS" -> PropertyType.HOLIDAY_HOME;
             default -> null;
         };
     }

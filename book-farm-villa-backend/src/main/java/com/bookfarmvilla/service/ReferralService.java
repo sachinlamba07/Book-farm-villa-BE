@@ -37,7 +37,12 @@ public class ReferralService {
         referral.setRefereeName(request.get("refereeName"));
         referral.setRefereePhone(request.get("refereePhone"));
         referral.setRefereeEmail(request.get("refereeEmail"));
-        referral.setPropertyType(request.get("propertyType"));
+        String propertyType = request.get("propertyType");
+        referral.setPropertyType(
+                propertyType != null && propertyType.trim().equalsIgnoreCase("AIRBNB")
+                        ? "HOLIDAY_HOME"
+                        : propertyType
+        );
         referral.setMessage(request.get("message"));
 
         // Parse event date if provided

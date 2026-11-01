@@ -6,6 +6,7 @@ import com.bookfarmvilla.entity.enums.PropertyType;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Composable filters for the property search endpoint. Any of these can be
@@ -23,12 +24,16 @@ public final class PropertySpecifications {
 
     public static Specification<Property> hasType(PropertyType type) {
         if (type == null) return null;
-        return (root, query, cb) -> cb.equal(root.get("type"), type);
+        PropertyType canonicalType = type.canonical();
+        return (root, query, cb) -> cb.equal(root.get("type"), canonicalType);
     }
 
     public static Specification<Property> hasTypes(Set<PropertyType> types) {
         if (types == null || types.isEmpty()) return null;
-        return (root, query, cb) -> root.get("type").in(types);
+        Set<PropertyType> canonicalTypes = types.stream()
+                .map(PropertyType::canonical)
+                .collect(Collectors.toSet());
+        return (root, query, cb) -> root.get("type").in(canonicalTypes);
     }
 
     public static Specification<Property> hasStatus(ListingStatus status) {

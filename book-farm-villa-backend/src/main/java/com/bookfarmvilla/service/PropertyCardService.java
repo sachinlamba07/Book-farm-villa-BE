@@ -23,6 +23,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class PropertyCardService {
@@ -65,7 +66,11 @@ public class PropertyCardService {
                 pageable.getSort()
         );
         Set<PropertyType> effectiveTypes = (types == null || types.isEmpty())
-                ? Set.of(PropertyType.values()) : types;
+                ? Set.of(PropertyType.FARMHOUSE, PropertyType.VILLA, PropertyType.WEDDING_LAWN,
+                        PropertyType.HOLIDAY_HOME)
+                : types.stream()
+                        .map(PropertyType::canonical)
+                        .collect(Collectors.toSet());
         Page<PropertyCardBaseRow> page = propertyCardQueryRepository.findCards(
                 effectiveTypes,
                 city == null || city.isBlank() ? null : city.trim(),
