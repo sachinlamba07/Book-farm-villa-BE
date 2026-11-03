@@ -25,6 +25,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
+
 /**
  * All booking endpoints are admin/staff only - bookings are recorded internally
  * after a phone call, there is no public booking submission flow.
@@ -48,10 +50,14 @@ public class BookingController {
             @RequestParam(required = false) BookingStatus status,
             @RequestParam(required = false) PaymentStatus paymentStatus,
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) LocalDate fromDate,
+            @RequestParam(required = false) LocalDate toDate,
             @PageableDefault(size = 20) Pageable pageable
     ) {
-        log.info("GET /api/bookings - listingType={}, status={}, paymentStatus={}, keyword={}", listingType, status, paymentStatus, keyword);
-        return ResponseEntity.ok(bookingService.search(listingType, status, paymentStatus, keyword, pageable));
+        log.info("GET /api/bookings - listingType={}, status={}, paymentStatus={}, keyword={}, fromDate={}, toDate={}",
+                listingType, status, paymentStatus, keyword, fromDate, toDate);
+        return ResponseEntity.ok(bookingService.search(
+                listingType, status, paymentStatus, keyword, fromDate, toDate, pageable));
     }
 
     @GetMapping("/{id}")

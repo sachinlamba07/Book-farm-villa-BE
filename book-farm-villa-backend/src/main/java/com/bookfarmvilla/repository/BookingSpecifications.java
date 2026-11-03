@@ -6,6 +6,8 @@ import com.bookfarmvilla.entity.enums.PaymentStatus;
 import com.bookfarmvilla.entity.enums.PropertyType;
 import org.springframework.data.jpa.domain.Specification;
 
+import java.time.LocalDate;
+
 public final class BookingSpecifications {
 
     private BookingSpecifications() {
@@ -27,8 +29,23 @@ public final class BookingSpecifications {
         return (root, query, cb) -> cb.equal(root.get("paymentStatus"), paymentStatus);
     }
 
+    public static Specification<Booking> bookingDateFrom(LocalDate fromDate) {
+        if (fromDate == null) return null;
+        return (root, query, cb) -> cb.greaterThanOrEqualTo(root.get("bookingDate"), fromDate);
+    }
+
+    public static Specification<Booking> bookingDateTo(LocalDate toDate) {
+        if (toDate == null) return null;
+        return (root, query, cb) -> cb.lessThanOrEqualTo(root.get("bookingDate"), toDate);
+    }
+
     public static Specification<Booking> customerNameContains(String keyword) {
         if (keyword == null || keyword.isBlank()) return null;
-        return (root, query, cb) -> cb.like(cb.lower(root.get("customerName")), "%" + keyword.toLowerCase() + "%");
+        String pattern = "%" + keyword.trim().toLowerCase() + "%";
+        return (root, query, cb) -> cb.or(
+                cb.like(cb.lower(root.get("customerName")), pattern),
+                cb.like(cb.lower(root.get("id")), pattern),
+                cb.like(cb.lower(root.get("customerPhone")), pattern),
+                cb.like(cb.lower(root.get("invoiceNumber")), pattern));
     }
 }
