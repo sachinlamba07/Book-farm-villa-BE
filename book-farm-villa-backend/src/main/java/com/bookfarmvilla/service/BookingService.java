@@ -34,10 +34,16 @@ public class BookingService {
 
     private final BookingRepository bookingRepository;
     private final PropertyRepository propertyRepository;
+    private final InvoiceNumberService invoiceNumberService;
 
-    public BookingService(BookingRepository bookingRepository, PropertyRepository propertyRepository) {
+    public BookingService(
+            BookingRepository bookingRepository,
+            PropertyRepository propertyRepository,
+            InvoiceNumberService invoiceNumberService
+    ) {
         this.bookingRepository = bookingRepository;
         this.propertyRepository = propertyRepository;
+        this.invoiceNumberService = invoiceNumberService;
     }
 
     @Transactional(readOnly = true)
@@ -74,6 +80,7 @@ public class BookingService {
         Booking booking = new Booking();
         booking.setId(request.id());
         applyRequest(booking, request);
+        booking.setInvoiceNumber(invoiceNumberService.nextInvoiceNumber());
         Booking saved = bookingRepository.save(booking);
         log.info("Created booking id={}, customer='{}'", saved.getId(), saved.getCustomerName());
         return toResponse(saved);
@@ -83,6 +90,9 @@ public class BookingService {
     public BookingResponse update(String id, BookingRequest request) {
         Booking booking = getOrThrow(id);
         applyRequest(booking, request);
+        if (booking.getInvoiceNumber() == null || booking.getInvoiceNumber().isBlank()) {
+            booking.setInvoiceNumber(invoiceNumberService.nextInvoiceNumber());
+        }
         Booking saved = bookingRepository.save(booking);
         log.info("Updated booking id={}", id);
         return toResponse(saved);
@@ -107,7 +117,6 @@ public class BookingService {
         booking.setCheckOutDate(request.checkOutDate());
         booking.setStartTime(request.startTime());
         booking.setEndTime(request.endTime());
-        booking.setInvoiceNumber(blankToNull(request.invoiceNumber()));
         booking.setGstin(blankToNull(request.gstin()));
         booking.setPlaceOfSupply(blankToNull(request.placeOfSupply()));
         booking.getLineItems().clear();
