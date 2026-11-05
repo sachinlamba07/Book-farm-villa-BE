@@ -12,6 +12,7 @@ import java.util.List;
 
 public record BookingResponse(
         String id,
+        String bookingNumber,
         String customerName,
         String customerPhone,
         String customerEmail,

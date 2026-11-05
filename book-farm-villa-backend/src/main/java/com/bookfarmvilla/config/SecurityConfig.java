@@ -77,6 +77,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET,
                                 "/api/reviews/property/**", "/api/reviews/vendor/**")
                         .permitAll()
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/reviews/submit", "/api/review-uploads/signature")
+                        .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/leads", "/api/partners").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/referral/submit", "/api/referrals/submit").permitAll()
                         .requestMatchers(HttpMethod.GET,

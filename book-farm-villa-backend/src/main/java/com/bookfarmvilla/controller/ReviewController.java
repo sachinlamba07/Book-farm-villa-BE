@@ -1,8 +1,10 @@
 package com.bookfarmvilla.controller;
 
 import com.bookfarmvilla.dto.request.ReviewRequest;
+import com.bookfarmvilla.dto.request.PublicReviewRequest;
 import com.bookfarmvilla.dto.response.ReviewResponse;
 import com.bookfarmvilla.dto.response.PageResponse;
+import com.bookfarmvilla.entity.enums.ReviewStatus;
 import com.bookfarmvilla.service.ReviewService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -62,7 +65,12 @@ public class ReviewController {
         return ResponseEntity.ok(reviewService.findByVendor(vendorId));
     }
 
-    /** Moderated: only ADMIN/STAFF can publish a review for now. Open this up later if you want public review submission + an approval flag. */
+    @PostMapping("/submit")
+    public ResponseEntity<ReviewResponse> submitPublic(@Valid @RequestBody PublicReviewRequest request) {
+        ReviewResponse created = reviewService.submitPublic(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
     public ResponseEntity<ReviewResponse> create(@Valid @RequestBody ReviewRequest request) {
@@ -92,5 +100,14 @@ public class ReviewController {
         reviewService.delete(id);
         log.info("DELETE /api/reviews/{} - deleted", id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
+    public ResponseEntity<ReviewResponse> updateStatus(
+            @PathVariable String id,
+            @RequestParam ReviewStatus status
+    ) {
+        return ResponseEntity.ok(reviewService.updateStatus(id, status));
     }
 }

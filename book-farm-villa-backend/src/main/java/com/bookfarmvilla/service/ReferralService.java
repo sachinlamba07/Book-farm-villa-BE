@@ -5,6 +5,8 @@ import com.bookfarmvilla.entity.Referral;
 import com.bookfarmvilla.entity.enums.ReferralStatus;
 import com.bookfarmvilla.exception.ResourceNotFoundException;
 import com.bookfarmvilla.repository.ReferralRepository;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -18,6 +20,7 @@ import java.util.Map;
 public class ReferralService {
 
     private final ReferralRepository referralRepository;
+    private final NotificationService notificationService;
 
     /**
      * Public referral submission - no auth required.
@@ -59,6 +62,16 @@ public class ReferralService {
         referral.setRewardAmount(calculateReward(null));
 
         Referral saved = referralRepository.save(referral);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    notificationService.notifyNewReferral(saved);
+                }
+            });
+        } else {
+            notificationService.notifyNewReferral(saved);
+        }
         return ReferralResponse.from(saved);
     }
 

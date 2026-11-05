@@ -14,6 +14,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 public class PartnerService {
@@ -42,7 +44,16 @@ public class PartnerService {
 
         Partner saved = partnerRepository.save(partner);
         log.info("Created partner request id={}, business='{}'", saved.getId(), saved.getBusinessName());
-        notificationService.notifyNewPartner(saved);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    notificationService.notifyNewPartner(saved);
+                }
+            });
+        } else {
+            notificationService.notifyNewPartner(saved);
+        }
         return toResponse(saved);
     }
 

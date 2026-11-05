@@ -35,15 +35,18 @@ public class BookingService {
     private final BookingRepository bookingRepository;
     private final PropertyRepository propertyRepository;
     private final InvoiceNumberService invoiceNumberService;
+    private final BookingNumberService bookingNumberService;
 
     public BookingService(
             BookingRepository bookingRepository,
             PropertyRepository propertyRepository,
-            InvoiceNumberService invoiceNumberService
+            InvoiceNumberService invoiceNumberService,
+            BookingNumberService bookingNumberService
     ) {
         this.bookingRepository = bookingRepository;
         this.propertyRepository = propertyRepository;
         this.invoiceNumberService = invoiceNumberService;
+        this.bookingNumberService = bookingNumberService;
     }
 
     @Transactional(readOnly = true)
@@ -81,6 +84,7 @@ public class BookingService {
         booking.setId(request.id());
         applyRequest(booking, request);
         booking.setInvoiceNumber(invoiceNumberService.nextInvoiceNumber());
+        booking.setBookingNumber(bookingNumberService.nextBookingNumber());
         Booking saved = bookingRepository.save(booking);
         log.info("Created booking id={}, customer='{}'", saved.getId(), saved.getCustomerName());
         return toResponse(saved);
@@ -92,6 +96,9 @@ public class BookingService {
         applyRequest(booking, request);
         if (booking.getInvoiceNumber() == null || booking.getInvoiceNumber().isBlank()) {
             booking.setInvoiceNumber(invoiceNumberService.nextInvoiceNumber());
+        }
+        if (booking.getBookingNumber() == null || booking.getBookingNumber().isBlank()) {
+            booking.setBookingNumber(bookingNumberService.nextBookingNumber());
         }
         Booking saved = bookingRepository.save(booking);
         log.info("Updated booking id={}", id);
@@ -157,6 +164,7 @@ public class BookingService {
     private BookingResponse toResponse(Booking b) {
         return new BookingResponse(
                 b.getId(),
+                b.getBookingNumber(),
                 b.getCustomerName(),
                 b.getCustomerPhone(),
                 b.getCustomerEmail(),

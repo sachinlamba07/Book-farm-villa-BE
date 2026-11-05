@@ -45,6 +45,7 @@ public final class BookingSpecifications {
         return (root, query, cb) -> cb.or(
                 cb.like(cb.lower(root.get("customerName")), pattern),
                 cb.like(cb.lower(root.get("id")), pattern),
+                cb.like(cb.lower(root.get("bookingNumber")), pattern),
                 cb.like(cb.lower(root.get("customerPhone")), pattern),
                 cb.like(cb.lower(root.get("invoiceNumber")), pattern));
     }

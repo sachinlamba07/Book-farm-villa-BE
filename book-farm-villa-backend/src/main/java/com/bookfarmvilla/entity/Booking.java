@@ -72,6 +72,9 @@ public class Booking extends BaseEntity {
     @Column(name = "invoice_number", length = 80)
     private String invoiceNumber;
 
+    @Column(name = "booking_number", nullable = false, unique = true, length = 20)
+    private String bookingNumber;
+
     @Column(name = "gstin", length = 32)
     private String gstin;
 

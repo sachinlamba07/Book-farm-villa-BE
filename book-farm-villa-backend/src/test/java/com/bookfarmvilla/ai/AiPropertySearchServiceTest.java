@@ -1,8 +1,10 @@
 package com.bookfarmvilla.ai;
 
 import com.bookfarmvilla.entity.Property;
+import com.bookfarmvilla.entity.Vendor;
 import com.bookfarmvilla.entity.enums.ListingStatus;
 import com.bookfarmvilla.entity.enums.PropertyType;
+import com.bookfarmvilla.entity.enums.VendorCategory;
 import com.bookfarmvilla.repository.PropertyRepository;
 import com.bookfarmvilla.repository.ReviewRepository;
 import com.bookfarmvilla.repository.VendorRepository;
@@ -24,16 +26,18 @@ import static org.mockito.Mockito.when;
 class AiPropertySearchServiceTest {
 
     private PropertyRepository propertyRepository;
+    private VendorRepository vendorRepository;
     private ReviewRepository reviewRepository;
     private AiPropertySearchService searchService;
 
     @BeforeEach
     void setUp() {
         propertyRepository = mock(PropertyRepository.class);
+        vendorRepository = mock(VendorRepository.class);
         reviewRepository = mock(ReviewRepository.class);
         searchService = new AiPropertySearchService(
                 propertyRepository,
-                mock(VendorRepository.class),
+                vendorRepository,
                 reviewRepository
         );
     }
@@ -92,6 +96,74 @@ class AiPropertySearchServiceTest {
         assertEquals(PropertyType.VILLA, result.properties().get(0).type());
     }
 
+    @Test
+    void neverReturnsAnExplicitlyExcludedPropertyTypeDuringFallback() {
+        Property weddingLawn = property("noida-lawn", "Noida", PropertyType.WEDDING_LAWN, 25000);
+        Property villa = property("noida-villa", "Noida", PropertyType.VILLA, 25000);
+        when(propertyRepository.findAll(anySpecification(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(weddingLawn)))
+                .thenReturn(new PageImpl<>(List.of(weddingLawn, villa)));
+
+        AiRequirements requirements = new AiRequirements(
+                null,
+                null,
+                null,
+                "WEDDING_LAWN",
+                List.of(),
+                null,
+                null,
+                List.of("WEDDING_LAWN"));
+
+        AiPropertySearchService.PropertySearchResult result = searchService.searchPropertiesWithAlternatives(
+                requirements,
+                null,
+                null);
+
+        assertEquals(List.of("property type"), result.relaxedFilters());
+        assertEquals(List.of(villa.getId()), result.properties().stream().map(item -> item.id()).toList());
+    }
+
+    @Test
+    void excludesPreviouslyShownListingsBeforeSelectingMoreResults() {
+        Property previouslyShown = property("shown-farmhouse", "Noida", PropertyType.FARMHOUSE, 18000);
+        Property nextOption = property("next-farmhouse", "Noida", PropertyType.FARMHOUSE, 20000);
+        when(propertyRepository.findAll(anySpecification(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(previouslyShown, nextOption)));
+
+        AiPropertySearchService.PropertySearchResult result = searchService.searchPropertiesWithAlternatives(
+                new AiRequirements(null, null, null, "FARMHOUSE", List.of(), null, null),
+                null,
+                null,
+                List.of(previouslyShown.getId()));
+
+        assertEquals(List.of(nextOption.getId()), result.properties().stream().map(item -> item.id()).toList());
+    }
+
+    @Test
+    void searchesEveryVendorCategoryRequestedForOneEvent() {
+        Vendor photographer = vendor("event-photographer", VendorCategory.PHOTOGRAPHER);
+        Vendor caterer = vendor("event-caterer", VendorCategory.CATERER);
+        when(vendorRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(photographer, caterer)));
+        AiRequirements requirements = new AiRequirements(
+                "Noida",
+                null,
+                null,
+                null,
+                List.of(),
+                "birthday",
+                null,
+                List.of("PHOTOGRAPHER", "CATERER"),
+                List.of());
+
+        AiPropertySearchService.VendorSearchResult result =
+                searchService.searchVendorsWithAlternatives(requirements);
+
+        assertEquals(
+                List.of(VendorCategory.PHOTOGRAPHER, VendorCategory.CATERER),
+                result.vendors().stream().map(item -> item.category()).toList());
+    }
+
     @SuppressWarnings("unchecked")
     private Specification<Property> anySpecification() {
         return any(Specification.class);
@@ -109,5 +181,17 @@ class AiPropertySearchServiceTest {
         property.setStartingPrice(BigDecimal.valueOf(startingPrice));
         property.setEndingPrice(BigDecimal.valueOf(startingPrice));
         return property;
+    }
+
+    private Vendor vendor(String id, VendorCategory category) {
+        Vendor vendor = new Vendor();
+        vendor.setId(id);
+        vendor.setSlug(id);
+        vendor.setName(id);
+        vendor.setCategory(category);
+        vendor.setCity("Noida");
+        vendor.setStatus(ListingStatus.ACTIVE);
+        vendor.setContactPhone("9999999999");
+        return vendor;
     }
 }

@@ -16,7 +16,7 @@ import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 /**
- * Issues short-lived Cloudinary upload signatures to logged-in staff.
+ * Issues short-lived Cloudinary upload signatures.
  * The API secret never leaves the server; Cloudinary rejects signatures older
  * than 1 hour.
  */
@@ -44,6 +44,14 @@ public class CloudinaryUploadService {
     }
 
     public UploadSignatureResponse sign(String resourceType) {
+        return sign(resourceType, baseFolder + "/" + normalizedResourceType(resourceType) + "s");
+    }
+
+    public UploadSignatureResponse signReviewMedia(String resourceType) {
+        return sign(resourceType, baseFolder + "/review-media/" + normalizedResourceType(resourceType) + "s");
+    }
+
+    private UploadSignatureResponse sign(String resourceType, String folder) {
         String type = resourceType == null ? "" : resourceType.trim().toLowerCase(Locale.ROOT);
         String formats = ALLOWED_FORMATS.get(type);
         if (formats == null) {
@@ -52,9 +60,7 @@ public class CloudinaryUploadService {
         if (isBlank(cloudName) || isBlank(apiKey) || isBlank(apiSecret)) {
             throw new BadRequestException("Media uploads are not configured on the server.");
         }
-
         long timestamp = Instant.now().getEpochSecond();
-        String folder = baseFolder + "/" + type + "s";
 
         // Cloudinary signs every upload parameter except file, api_key,
         // resource_type and cloud_name, sorted alphabetically.
@@ -69,6 +75,14 @@ public class CloudinaryUploadService {
 
         return new UploadSignatureResponse(
                 cloudName, apiKey, timestamp, sha1Hex(toSign + apiSecret), folder, formats, type);
+    }
+
+    private String normalizedResourceType(String resourceType) {
+        String type = resourceType == null ? "" : resourceType.trim().toLowerCase(Locale.ROOT);
+        if (!ALLOWED_FORMATS.containsKey(type)) {
+            throw new BadRequestException("resourceType must be 'image' or 'video'");
+        }
+        return type;
     }
 
     private static String sha1Hex(String value) {

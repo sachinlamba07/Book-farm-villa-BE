@@ -1,11 +1,14 @@
 package com.bookfarmvilla.service;
 
 import com.bookfarmvilla.dto.request.ReviewRequest;
+import com.bookfarmvilla.dto.request.PublicReviewRequest;
 import com.bookfarmvilla.dto.response.PageResponse;
 import com.bookfarmvilla.dto.response.ReviewResponse;
 import com.bookfarmvilla.entity.Property;
 import com.bookfarmvilla.entity.Review;
 import com.bookfarmvilla.entity.Vendor;
+import com.bookfarmvilla.entity.enums.ListingStatus;
+import com.bookfarmvilla.entity.enums.ReviewStatus;
 import com.bookfarmvilla.exception.BadRequestException;
 import com.bookfarmvilla.exception.ResourceNotFoundException;
 import com.bookfarmvilla.repository.PropertyRepository;
@@ -18,6 +21,7 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.net.URI;
 import java.util.List;
 
 @Service
@@ -39,7 +43,8 @@ public class ReviewService {
         if (!propertyRepository.existsById(propertyId)) {
             throw ResourceNotFoundException.of("Property", propertyId);
         }
-        return reviewRepository.findByPropertyId(propertyId).stream().map(this::toResponse).toList();
+        return reviewRepository.findByPropertyIdAndStatusOrderByCreatedAtDesc(
+                propertyId, ReviewStatus.APPROVED).stream().map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
@@ -48,7 +53,8 @@ public class ReviewService {
         if (!vendorRepository.existsById(vendorId)) {
             throw ResourceNotFoundException.of("Vendor", vendorId);
         }
-        return reviewRepository.findByVendorId(vendorId).stream().map(this::toResponse).toList();
+        return reviewRepository.findByVendorIdAndStatusOrderByCreatedAtDesc(
+                vendorId, ReviewStatus.APPROVED).stream().map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
@@ -77,6 +83,49 @@ public class ReviewService {
         Review review = new Review();
         review.setId(request.id());
         applyRequest(review, request);
+        review.setStatus(ReviewStatus.APPROVED);
+        return toResponse(reviewRepository.save(review));
+    }
+
+    @Transactional
+    @CacheEvict(cacheNames = {"propertySearch", "propertyV2Search", "propertyCards", "propertyDetails", "propertyV2Details", "vendorSearch", "vendorDetails", "propertyReviews", "vendorReviews"}, allEntries = true)
+    public ReviewResponse submitPublic(PublicReviewRequest request) {
+        boolean hasProperty = request.propertyId() != null && !request.propertyId().isBlank();
+        boolean hasVendor = request.vendorId() != null && !request.vendorId().isBlank();
+        if (hasProperty == hasVendor) {
+            throw new BadRequestException("A review must reference exactly one property or one vendor");
+        }
+
+        List<String> mediaUrls = request.mediaUrls() == null ? List.of() : List.copyOf(request.mediaUrls());
+        if (mediaUrls.stream().anyMatch(url -> !isCloudinaryUrl(url))) {
+            throw new BadRequestException("Review media must be uploaded to Cloudinary.");
+        }
+
+        Review review = new Review();
+        review.setReviewerName(request.reviewerName().trim());
+        review.setRating(request.rating());
+        review.setTitle(request.title().trim());
+        review.setComment(request.comment().trim());
+        review.setBookingReference(blankToNull(request.bookingReference()));
+        review.setMediaUrls(mediaUrls);
+        review.setStatus(ReviewStatus.PENDING);
+
+        if (hasProperty) {
+            Property property = propertyRepository.findById(request.propertyId())
+                    .orElseThrow(() -> ResourceNotFoundException.of("Property", request.propertyId()));
+            if (property.getStatus() != ListingStatus.ACTIVE) {
+                throw new BadRequestException("Reviews can only be submitted for active properties.");
+            }
+            review.setProperty(property);
+        } else {
+            Vendor vendor = vendorRepository.findById(request.vendorId())
+                    .orElseThrow(() -> ResourceNotFoundException.of("Vendor", request.vendorId()));
+            if (vendor.getStatus() != ListingStatus.ACTIVE) {
+                throw new BadRequestException("Reviews can only be submitted for active vendors.");
+            }
+            review.setVendor(vendor);
+        }
+
         return toResponse(reviewRepository.save(review));
     }
 
@@ -98,6 +147,15 @@ public class ReviewService {
         reviewRepository.deleteById(id);
     }
 
+    @Transactional
+    @CacheEvict(cacheNames = {"propertySearch", "propertyV2Search", "propertyCards", "propertyDetails", "propertyV2Details", "vendorSearch", "vendorDetails", "propertyReviews", "vendorReviews"}, allEntries = true)
+    public ReviewResponse updateStatus(String id, ReviewStatus status) {
+        Review review = reviewRepository.findById(id)
+                .orElseThrow(() -> ResourceNotFoundException.of("Review", id));
+        review.setStatus(status);
+        return toResponse(reviewRepository.save(review));
+    }
+
     private ReviewResponse toResponse(Review r) {
         return new ReviewResponse(
                 r.getId(),
@@ -107,7 +165,11 @@ public class ReviewService {
                 r.getVendor() != null ? r.getVendor().getName() : null,
                 r.getReviewerName(),
                 r.getRating(),
+                r.getTitle(),
                 r.getComment(),
+                r.getBookingReference(),
+                r.getMediaUrls() == null ? List.of() : List.copyOf(r.getMediaUrls()),
+                r.getStatus(),
                 r.getCreatedAt()
         );
     }
@@ -122,6 +184,15 @@ public class ReviewService {
         review.setReviewerName(request.reviewerName().trim());
         review.setRating(request.rating());
         review.setComment(request.comment());
+        if (request.title() != null) {
+            review.setTitle(blankToNull(request.title()));
+        }
+        if (request.bookingReference() != null) {
+            review.setBookingReference(blankToNull(request.bookingReference()));
+        }
+        if (request.mediaUrls() != null) {
+            review.setMediaUrls(List.copyOf(request.mediaUrls()));
+        }
         if (hasProperty) {
             Property property = propertyRepository.findById(request.propertyId())
                     .orElseThrow(() -> ResourceNotFoundException.of("Property", request.propertyId()));
@@ -137,5 +208,21 @@ public class ReviewService {
 
     private String normalizeFilter(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private boolean isCloudinaryUrl(String value) {
+        try {
+            URI uri = URI.create(value);
+            return "https".equalsIgnoreCase(uri.getScheme())
+                    && "res.cloudinary.com".equalsIgnoreCase(uri.getHost())
+                    && uri.getPath() != null
+                    && uri.getPath().contains("/review-media/");
+        } catch (IllegalArgumentException exception) {
+            return false;
+        }
     }
 }

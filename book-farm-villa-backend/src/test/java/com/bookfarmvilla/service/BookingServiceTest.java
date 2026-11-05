@@ -39,6 +39,9 @@ class BookingServiceTest {
     @Mock
     private InvoiceNumberService invoiceNumberService;
 
+    @Mock
+    private BookingNumberService bookingNumberService;
+
     @InjectMocks
     private BookingService bookingService;
 
@@ -47,10 +50,13 @@ class BookingServiceTest {
         when(bookingRepository.save(any(Booking.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(invoiceNumberService.nextInvoiceNumber()).thenReturn("BFV-2026-1104-00001");
+        when(bookingNumberService.nextBookingNumber()).thenReturn("BFV-202610-00001");
 
         BookingResponse response = bookingService.create(request(new BigDecimal("175.00")));
 
         assertEquals("BFV-2026-1104-00001", response.invoiceNumber());
+        assertEquals("BFV-202610-00001", response.bookingNumber());
+        assertEquals("booking-001", response.id());
         assertEquals("guest@example.com", response.customerEmail());
         assertEquals(LocalDate.of(2026, 10, 30), response.checkInDate());
         assertEquals("UPI", response.paymentMode());
@@ -68,6 +74,7 @@ class BookingServiceTest {
 
         verify(bookingRepository, never()).save(any(Booking.class));
         verify(invoiceNumberService, never()).nextInvoiceNumber();
+        verify(bookingNumberService, never()).nextBookingNumber();
     }
 
     private BookingRequest request(BigDecimal amount) {

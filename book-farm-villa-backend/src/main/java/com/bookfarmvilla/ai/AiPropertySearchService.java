@@ -45,10 +45,21 @@ public class AiPropertySearchService {
             AiRequirements requirements,
             Double latitude,
             Double longitude) {
+        return searchPropertiesWithAlternatives(requirements, latitude, longitude, List.of());
+    }
+
+    @Transactional(readOnly = true)
+    public PropertySearchResult searchPropertiesWithAlternatives(
+            AiRequirements requirements,
+            Double latitude,
+            Double longitude,
+            List<String> excludedPropertyIds) {
         PropertyType requestedType = parsePropertyType(requirements.propertyType());
+        Set<String> excludedIds = safeIds(excludedPropertyIds);
         List<String> relaxedFilters = new ArrayList<>();
         List<Property> candidates = findProperties(
                 requirements.location(), requirements.guests(), requestedType);
+        candidates = excludePropertyIds(candidates, excludedIds);
         List<Property> matches = filterProperties(candidates, requirements, true);
 
         if (matches.isEmpty() && requirements.budget() != null) {
@@ -60,6 +71,7 @@ public class AiPropertySearchService {
 
         if (matches.isEmpty() && hasText(requirements.location())) {
             candidates = findProperties(null, requirements.guests(), requestedType);
+            candidates = excludePropertyIds(candidates, excludedIds);
             matches = filterProperties(candidates, requirements, false);
             if (!matches.isEmpty()) {
                 if (requirements.budget() != null) {
@@ -71,6 +83,7 @@ public class AiPropertySearchService {
 
         if (matches.isEmpty() && requestedType != null) {
             candidates = findProperties(null, requirements.guests(), null);
+            candidates = excludePropertyIds(candidates, excludedIds);
             matches = filterProperties(candidates, requirements, false);
             if (!matches.isEmpty()) {
                 if (requirements.budget() != null) {
@@ -133,6 +146,7 @@ public class AiPropertySearchService {
                         .map(this::normalise)
                         .toList();
         return candidates.stream()
+                .filter(property -> !isExcluded(property.getType(), requirements.excludedTypes()))
                 .filter(property -> matchesAmenities(property, wantedAmenities))
                 .filter(property -> !enforceBudget || requirements.budget() == null
                         || priceFitsBudget(
@@ -151,6 +165,12 @@ public class AiPropertySearchService {
         return wanted.stream()
                 .allMatch(required -> actual.stream()
                         .anyMatch(value -> value.contains(required) || required.contains(value)));
+    }
+
+    private List<Property> excludePropertyIds(List<Property> properties, Set<String> excludedIds) {
+        return properties.stream()
+                .filter(property -> !excludedIds.contains(property.getId()))
+                .toList();
     }
 
     private java.math.BigDecimal distanceFromBudget(Property property, int budget) {
@@ -180,25 +200,43 @@ public class AiPropertySearchService {
 
     @Transactional(readOnly = true)
     public VendorSearchResult searchVendorsWithAlternatives(AiRequirements r) {
-        VendorCategory category = parseVendorCategory(r.propertyType());
+        return searchVendorsWithAlternatives(r, List.of());
+    }
+
+    @Transactional(readOnly = true)
+    public VendorSearchResult searchVendorsWithAlternatives(
+            AiRequirements r,
+            List<String> excludedVendorIds) {
+        List<VendorCategory> categories = r.vendorCategories().stream()
+                .map(this::parseVendorCategory)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (categories.isEmpty()) {
+            VendorCategory legacyCategory = parseVendorCategory(r.propertyType());
+            if (legacyCategory != null) categories = List.of(legacyCategory);
+        }
+        Set<String> excludedIds = safeIds(excludedVendorIds);
         List<String> relaxedFilters = new ArrayList<>();
-        List<Vendor> candidates = findVendors(r.location(), category);
-        if (candidates.isEmpty() && hasText(r.location())) {
-            candidates = findVendors(null, category);
-            if (!candidates.isEmpty()) {
+        List<Vendor> candidates = findVendors(r.location(), null);
+        candidates = filterVendors(candidates, excludedIds, r.excludedTypes());
+        List<Vendor> matches = filterVendorCategories(candidates, categories);
+        if (matches.isEmpty() && hasText(r.location())) {
+            candidates = findVendors(null, null);
+            candidates = filterVendors(candidates, excludedIds, r.excludedTypes());
+            matches = filterVendorCategories(candidates, categories);
+            if (!matches.isEmpty()) {
                 relaxedFilters.add("location");
             }
         }
-        if (candidates.isEmpty() && category != null) {
-            candidates = findVendors(null, null);
-            if (!candidates.isEmpty()) {
-                if (hasText(r.location())) {
-                    relaxedFilters.add("location");
-                }
-                relaxedFilters.add("vendor type");
+        if (matches.isEmpty() && !categories.isEmpty() && !candidates.isEmpty()) {
+            matches = candidates;
+            if (!relaxedFilters.contains("location") && hasText(r.location())) {
+                relaxedFilters.add("location");
             }
+            relaxedFilters.add("vendor type");
         }
-        List<VendorResponse> vendors = candidates.stream()
+        List<VendorResponse> vendors = matches.stream()
                 .limit(8)
                 .map(this::toVendorResponseForAi)
                 .toList();
@@ -212,6 +250,23 @@ public class AiPropertySearchService {
                 .and(hasVendorCategory(category));
         return vendorRepository.findAll(spec, PageRequest.of(0, 200, Sort.by(Sort.Direction.DESC, "createdAt")))
                 .getContent();
+    }
+
+    private List<Vendor> filterVendors(
+            List<Vendor> vendors,
+            Set<String> excludedIds,
+            List<String> excludedTypes) {
+        return vendors.stream()
+                .filter(vendor -> !excludedIds.contains(vendor.getId()))
+                .filter(vendor -> !isExcluded(vendor.getCategory(), excludedTypes))
+                .toList();
+    }
+
+    private List<Vendor> filterVendorCategories(List<Vendor> vendors, List<VendorCategory> categories) {
+        if (categories.isEmpty()) return vendors;
+        return vendors.stream()
+                .filter(vendor -> categories.contains(vendor.getCategory()))
+                .toList();
     }
 
     private PropertyType parsePropertyType(String value) {
@@ -289,6 +344,37 @@ public class AiPropertySearchService {
         return value == null ? "" : value.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
     }
 
+    private boolean isExcluded(Enum<?> value, List<String> exclusions) {
+        if (value == null || exclusions == null) return false;
+        String normalizedValue = normaliseListingType(value.name());
+        return exclusions.stream()
+                .filter(Objects::nonNull)
+                .map(this::normaliseListingType)
+                .anyMatch(exclusion -> !exclusion.isBlank()
+                        && (normalizedValue.equals(exclusion)
+                                || normalizedValue.contains(exclusion)
+                                || exclusion.contains(normalizedValue)));
+    }
+
+    private String normaliseListingType(String value) {
+        String normalized = normalise(value);
+        return switch (normalized) {
+            case "catering" -> "caterer";
+            case "decoration", "decor" -> "decorator";
+            case "photography", "photo" -> "photographer";
+            case "makeup" -> "makeupartist";
+            default -> normalized;
+        };
+    }
+
+    private Set<String> safeIds(List<String> ids) {
+        if (ids == null) return Set.of();
+        return ids.stream()
+                .filter(Objects::nonNull)
+                .filter(id -> !id.isBlank())
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+    }
+
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
     }
@@ -315,6 +401,7 @@ public class AiPropertySearchService {
             List<String> relaxedFilters) {
     }
 
+    @Transactional(readOnly = true)
     public PropertyResponse toPropertyResponseForAi(Property p) {
         List<PropertyImageResponse> images = p.getImages().stream()
                 .map(i -> new PropertyImageResponse(i.getId(), i.getUrl(), i.isPrimary()))
@@ -335,6 +422,7 @@ public class AiPropertySearchService {
                 images, rating, p.getCreatedAt(), p.getModifiedAt());
     }
 
+    @Transactional(readOnly = true)
     public VendorResponse toVendorResponseForAi(Vendor v) {
         List<VendorImageResponse> images = v.getImages().stream()
                 .map(i -> new VendorImageResponse(i.getId(), i.getUrl(), i.isPrimary()))

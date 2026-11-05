@@ -44,13 +44,16 @@ public class AdminStatsService {
             byType.put(row.type(), row.count());
         }
         long totalListings = byType.values().stream().mapToLong(Long::longValue).sum();
+        long holidayHomes = byType.getOrDefault(PropertyType.HOLIDAY_HOME, 0L)
+                + byType.getOrDefault(PropertyType.AIRBNB, 0L);
 
         return new AdminStatsResponse(
                 totalListings,
                 byType.getOrDefault(PropertyType.FARMHOUSE, 0L),
                 byType.getOrDefault(PropertyType.VILLA, 0L),
                 byType.getOrDefault(PropertyType.WEDDING_LAWN, 0L),
-                byType.getOrDefault(PropertyType.AIRBNB, 0L),
+                holidayHomes,
+                holidayHomes,
                 vendorRepository.count(),
                 bookingRepository.count(),
                 leadRepository.count(),

@@ -8,6 +8,7 @@ public record AdminStatsResponse(
         long farmhouses,
         long villas,
         long weddingLawns,
+        long holidayHomes,
         long airbnbs,
         long vendors,
         long bookings,

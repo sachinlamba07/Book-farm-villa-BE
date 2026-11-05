@@ -1,6 +1,8 @@
 package com.bookfarmvilla.service;
 
 import com.bookfarmvilla.entity.Lead;
+import com.bookfarmvilla.entity.Partner;
+import com.bookfarmvilla.entity.Referral;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,7 +15,7 @@ import org.springframework.web.client.RestClientResponseException;
 import java.util.List;
 
 /**
- * Notifies the internal team when a new lead comes in.
+ * Notifies the internal team when a new public submission comes in.
  *
  * Sends enquiry email through Resend's HTTPS API, which is available from
  * Render Free services unlike outbound SMTP.
@@ -48,9 +50,25 @@ public class NotificationService {
                 : "vendor '" + lead.getVendor().getName() + "'";
 
         log.info("New lead notification queued for {}", target);
+        sendEmail("New BookFarmVilla enquiry", buildLeadEmailBody(lead, target), "enquiry");
+    }
 
+    @Async("notificationExecutor")
+    public void notifyNewPartner(Partner partner) {
+        log.info("New partner request notification queued for business '{}'", partner.getBusinessName());
+        sendEmail("New BookFarmVilla partner request", buildPartnerEmailBody(partner), "partner request");
+    }
+
+    @Async("notificationExecutor")
+    public void notifyNewReferral(Referral referral) {
+        log.info("New referral notification queued for {}", referral.getReferralNumber());
+        sendEmail("New BookFarmVilla referral", buildReferralEmailBody(referral), "referral");
+    }
+
+    private void sendEmail(String subject, String text, String notificationType) {
         if (isBlank(resendApiKey) || isBlank(emailFrom) || isBlank(emailTo)) {
-            log.warn("Resend email notification is not configured; lead notification was not sent");
+            log.warn("Resend email notification is not configured; {} notification was not sent",
+                    notificationType);
             return;
         }
 
@@ -62,25 +80,19 @@ public class NotificationService {
                     .body(new ResendEmailRequest(
                             emailFrom,
                             List.of(emailTo),
-                            "New BookFarmVilla enquiry",
-                            buildLeadEmailBody(lead, target)
+                            subject,
+                            text
                     ))
                     .retrieve()
                     .toBodilessEntity();
-            log.info("Enquiry email notification sent to {}", emailTo);
+            log.info("{} email notification sent to {}", notificationType, emailTo);
         } catch (RestClientResponseException exception) {
-            log.error("Resend rejected enquiry email (HTTP {})", exception.getStatusCode().value());
+            log.error("Resend rejected {} email (HTTP {})",
+                    notificationType, exception.getStatusCode().value());
         } catch (RestClientException exception) {
-            log.error("Could not send enquiry email through Resend ({})",
-                    exception.getClass().getSimpleName());
+            log.error("Could not send {} email through Resend ({})",
+                    notificationType, exception.getClass().getSimpleName());
         }
-    }
-
-    public void notifyNewPartner(com.bookfarmvilla.entity.Partner partner) {
-        log.info("New partner request received — business: '{}', type: {}, city: {}, contact: {}",
-                partner.getBusinessName(), partner.getBusinessType(), partner.getCity(), partner.getPhoneNumber());
-
-        // Partner notifications can use the same email integration when required.
     }
 
     private String buildLeadEmailBody(Lead lead, String target) {
@@ -102,6 +114,54 @@ public class NotificationService {
                 valueOrNotProvided(lead.getPreferredDate()),
                 valueOrNotProvided(lead.getEventType()),
                 valueOrNotProvided(lead.getMessage())
+        );
+    }
+
+    private String buildPartnerEmailBody(Partner partner) {
+        return """
+                A new partner request was submitted on BookFarmVilla.
+
+                Business name: %s
+                Business type: %s
+                Contact name: %s
+                City: %s
+                Address: %s
+                Phone: %s
+                """.formatted(
+                valueOrNotProvided(partner.getBusinessName()),
+                valueOrNotProvided(partner.getBusinessType()),
+                valueOrNotProvided(partner.getFullName()),
+                valueOrNotProvided(partner.getCity()),
+                valueOrNotProvided(partner.getLocation()),
+                valueOrNotProvided(partner.getPhoneNumber())
+        );
+    }
+
+    private String buildReferralEmailBody(Referral referral) {
+        return """
+                A new referral was submitted on BookFarmVilla.
+
+                Referral number: %s
+                Referrer name: %s
+                Referrer phone: %s
+                Referrer email: %s
+                Referred friend name: %s
+                Referred friend phone: %s
+                Referred friend email: %s
+                Property type: %s
+                Event date: %s
+                Message: %s
+                """.formatted(
+                valueOrNotProvided(referral.getReferralNumber()),
+                valueOrNotProvided(referral.getReferrerName()),
+                valueOrNotProvided(referral.getReferrerPhone()),
+                valueOrNotProvided(referral.getReferrerEmail()),
+                valueOrNotProvided(referral.getRefereeName()),
+                valueOrNotProvided(referral.getRefereePhone()),
+                valueOrNotProvided(referral.getRefereeEmail()),
+                valueOrNotProvided(referral.getPropertyType()),
+                valueOrNotProvided(referral.getEventDate()),
+                valueOrNotProvided(referral.getMessage())
         );
     }
 
