@@ -11,6 +11,7 @@ import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -56,7 +57,7 @@ public class LeadController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String sortBy,
             @RequestParam(required = false) String sortDirection,
-            @PageableDefault(size = 20) Pageable pageable) {
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         Pageable sortedPageable = ListSort.apply(pageable, sortBy, sortDirection, SORT_FIELDS);
         // The keyword itself isn't logged: it may contain a customer's name or phone
         // number.
