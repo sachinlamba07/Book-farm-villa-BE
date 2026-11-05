@@ -35,6 +35,8 @@ public class AiChatService {
                 "location": null,
                 "guests": null,
                 "budget": null,
+                "budgetMin": null,
+                "budgetMax": null,
                 "propertyType": null,
                 "amenities": [],
                 "purpose": null,
@@ -45,6 +47,10 @@ public class AiChatService {
               "response": ""
             }
             Use integer INR for budget. Convert 15k to 15000 and 1.5 lakh to 150000.
+            For a budget range such as "between 15k and 20k" or "between 15 20k", set
+            budgetMin to 15000 and budgetMax to 20000. For a single maximum budget, set
+            budgetMax and budget to that amount. Preserve both ends of a range; do not
+            reduce it to a maximum.
             Recognize Hindi/Hinglish and English.
             For "near me", do not invent a city; set location to null.
             propertyType may be FARMHOUSE, VILLA, WEDDING_LAWN, or HOLIDAY_HOME. Use vendorCategories
@@ -117,6 +123,27 @@ public class AiChatService {
     public AiChatResponse chat(AiChatRequest request) {
         long extractionStartedAt = System.nanoTime();
         AiIntent extracted = extractIntent(request);
+        BudgetRange explicitBudgetRange = extractBudgetRange(request.message());
+        if (explicitBudgetRange != null) {
+            AiRequirements extractedRequirements = extracted.requirements();
+            AiRequirements requirementsWithRange = new AiRequirements(
+                    extractedRequirements.location(),
+                    extractedRequirements.guests(),
+                    explicitBudgetRange.maximum(),
+                    explicitBudgetRange.minimum(),
+                    explicitBudgetRange.maximum(),
+                    extractedRequirements.propertyType(),
+                    extractedRequirements.amenities(),
+                    extractedRequirements.purpose(),
+                    extractedRequirements.date(),
+                    extractedRequirements.vendorCategories(),
+                    extractedRequirements.excludedTypes());
+            String intent = "SEARCH_VENDOR".equals(extracted.intent())
+                    || "SEARCH_BOTH".equals(extracted.intent())
+                            ? extracted.intent()
+                            : "SEARCH_PROPERTY";
+            extracted = new AiIntent(intent, requirementsWithRange, extracted.response());
+        }
         log.info("AI intent extraction completed in {} ms", elapsedMillis(extractionStartedAt));
         AiRequirements requirements = mergeRequirements(request.message(), extracted.requirements());
 
@@ -242,8 +269,40 @@ public class AiChatService {
             return parseIntent(raw);
         } catch (Exception ex) {
             log.warn("AI intent extraction failed; using deterministic fallback");
-            return deterministicIntent(request.message());
+            return deterministicIntent(request);
         }
+    }
+
+    private AiIntent deterministicIntent(AiChatRequest request) {
+        AiIntent latest = deterministicIntent(request.message());
+        BudgetRange range = extractBudgetRange(request.message());
+        if (range == null || request.history() == null) return latest;
+
+        String previousUserMessages = request.history().stream()
+                .filter(entry -> entry != null && "user".equalsIgnoreCase(entry.role()))
+                .map(AiChatMessage::content)
+                .filter(value -> value != null && !value.isBlank())
+                .reduce("", (first, second) -> first + "\n" + second);
+        AiRequirements previous = deterministicIntent(previousUserMessages).requirements();
+        AiRequirements current = latest.requirements();
+        AiRequirements merged = new AiRequirements(
+                firstNonNull(current.location(), previous.location()),
+                firstNonNull(current.guests(), previous.guests()),
+                range.maximum(),
+                range.minimum(),
+                range.maximum(),
+                firstNonNull(current.propertyType(), previous.propertyType()),
+                current.amenities().isEmpty() ? previous.amenities() : current.amenities(),
+                firstNonNull(current.purpose(), previous.purpose()),
+                firstNonNull(current.date(), previous.date()),
+                current.vendorCategories().isEmpty()
+                        ? previous.vendorCategories()
+                        : current.vendorCategories(),
+                mergeExcludedTypes(current.excludedTypes(), previous.excludedTypes()));
+        String intent = "SEARCH_VENDOR".equals(latest.intent()) || "SEARCH_BOTH".equals(latest.intent())
+                ? latest.intent()
+                : "SEARCH_PROPERTY";
+        return new AiIntent(intent, merged, latest.response());
     }
 
     private long elapsedMillis(long startedAt) {
@@ -283,6 +342,8 @@ public class AiChatService {
                     firstNonNull(latest.location(), prior.location()),
                     firstNonNull(latest.guests(), prior.guests()),
                     firstNonNull(latest.budget(), prior.budget()),
+                    firstNonNull(latest.budgetMin(), prior.budgetMin()),
+                    firstNonNull(latest.budgetMax(), prior.budgetMax()),
                     firstNonNull(latest.propertyType(), prior.propertyType()),
                     latest.amenities() == null || latest.amenities().isEmpty()
                             ? prior.amenities()
@@ -351,6 +412,9 @@ public class AiChatService {
 
                 Rules:
                 - The UI renders property/vendor cards from VERIFIED_DATA; never invent cards or their details.
+                - Apply budgetMin and budgetMax inclusively. Describe the requested range accurately.
+                - When summarizing search results, base every named option and the result count on
+                  VERIFIED_DATA; do not imply that a partial list is the complete set of matches.
                 - Ask for one missing requirement at a time, and only when needed to refine results.
                 - For a search intent with empty VERIFIED_DATA, say no exact verified match was found and invite one useful refinement.
                 - If SEARCH_STATUS says location is missing, ask for a city or area; do not say there were no matches.
@@ -437,6 +501,7 @@ public class AiChatService {
         if (m.matches("(?s).*\\bdj\\b.*")) vendorCategories.add("DJ");
         Integer guests = extractNumberBefore(m, "people", "person", "guests", "guest", "pax", "log");
         Integer budget = extractBudget(m);
+        BudgetRange budgetRange = extractBudgetRange(m);
 
         String type = m.contains("villa") ? "VILLA"
                 : m.contains("wedding lawn") ? "WEDDING_LAWN"
@@ -475,7 +540,17 @@ public class AiChatService {
         boolean vendor = !vendorCategories.isEmpty() || m.contains("vendor");
         String purpose = extractPurpose(m);
         AiRequirements r = new AiRequirements(
-                extractLocation(m), guests, budget, type, amenities, purpose, null, vendorCategories, excludedTypes);
+                extractLocation(m),
+                guests,
+                budget,
+                budgetRange == null ? null : budgetRange.minimum(),
+                budgetRange == null ? null : budgetRange.maximum(),
+                type,
+                amenities,
+                purpose,
+                null,
+                vendorCategories,
+                excludedTypes);
         boolean venueSearch = type != null
                 || m.matches("(?s).*\\b(?:venue|property|farmhouse|villa|wedding lawn|holiday home)\\b.*");
         String intent = vendor && venueSearch
@@ -578,6 +653,70 @@ public class AiChatService {
         if ("lakh".equalsIgnoreCase(unit) || "lac".equalsIgnoreCase(unit))
             value *= 100000;
         return (int) value;
+    }
+
+    static BudgetRange extractBudgetRange(String text) {
+        if (text == null || text.isBlank()) return null;
+        String normalized = text.replace(",", "");
+        java.util.regex.Pattern withConnector = java.util.regex.Pattern.compile(
+                "(?:\\b(?:between|from)\\s+)?(?:₹|rs\\.?\\s*|inr\\s*)?"
+                        + "(\\d+(?:\\.\\d+)?)\\s*(k|thousand|lakh|lac)?\\s*"
+                        + "(?:and|to|[-–])\\s*(?:₹|rs\\.?\\s*|inr\\s*)?"
+                        + "(\\d+(?:\\.\\d+)?)\\s*(k|thousand|lakh|lac)?\\b",
+                java.util.regex.Pattern.CASE_INSENSITIVE);
+        java.util.regex.Matcher matcher = withConnector.matcher(normalized);
+        if (matcher.find()) {
+            return hasBudgetRangeContext(normalized, matcher.group(2), matcher.group(4))
+                    ? createBudgetRange(
+                            matcher.group(1), matcher.group(2), matcher.group(3), matcher.group(4))
+                    : null;
+        }
+
+        java.util.regex.Pattern betweenWithoutConnector = java.util.regex.Pattern.compile(
+                "\\bbetween\\s+(?:₹|rs\\.?\\s*|inr\\s*)?"
+                        + "(\\d+(?:\\.\\d+)?)\\s*(k|thousand|lakh|lac)?\\s+"
+                        + "(\\d+(?:\\.\\d+)?)\\s*(k|thousand|lakh|lac)?\\b",
+                java.util.regex.Pattern.CASE_INSENSITIVE);
+        matcher = betweenWithoutConnector.matcher(normalized);
+        if (!matcher.find()) return null;
+        return hasBudgetRangeContext(normalized, matcher.group(2), matcher.group(4))
+                ? createBudgetRange(
+                        matcher.group(1), matcher.group(2), matcher.group(3), matcher.group(4))
+                : null;
+    }
+
+    private static boolean hasBudgetRangeContext(String text, String firstUnit, String secondUnit) {
+        return (firstUnit != null && !firstUnit.isBlank())
+                || (secondUnit != null && !secondUnit.isBlank())
+                || text.matches("(?is).*(?:budget|price|cost|₹|\\brs\\.?\\b|\\binr\\b).*");
+    }
+
+    private static BudgetRange createBudgetRange(
+            String firstAmount,
+            String firstUnit,
+            String secondAmount,
+            String secondUnit) {
+        String normalizedFirstUnit = firstUnit;
+        String normalizedSecondUnit = secondUnit;
+        if (normalizedFirstUnit == null || normalizedFirstUnit.isBlank()) {
+            normalizedFirstUnit = normalizedSecondUnit;
+        }
+        if (normalizedSecondUnit == null || normalizedSecondUnit.isBlank()) {
+            normalizedSecondUnit = normalizedFirstUnit;
+        }
+        int first = budgetValue(firstAmount, normalizedFirstUnit);
+        int second = budgetValue(secondAmount, normalizedSecondUnit);
+        return new BudgetRange(Math.min(first, second), Math.max(first, second));
+    }
+
+    private static int budgetValue(String amount, String unit) {
+        double value = Double.parseDouble(amount);
+        if ("k".equalsIgnoreCase(unit) || "thousand".equalsIgnoreCase(unit)) value *= 1_000;
+        if ("lakh".equalsIgnoreCase(unit) || "lac".equalsIgnoreCase(unit)) value *= 100_000;
+        return (int) value;
+    }
+
+    record BudgetRange(int minimum, int maximum) {
     }
 
     private String fallbackMessage(

@@ -6,6 +6,8 @@ public record AiRequirements(
         String location,
         Integer guests,
         Integer budget,
+        Integer budgetMin,
+        Integer budgetMax,
         String propertyType,
         List<String> amenities,
         String purpose,
@@ -22,7 +24,7 @@ public record AiRequirements(
             String purpose,
             String date
     ) {
-        this(location, guests, budget, propertyType, amenities, purpose, date, List.of(), List.of());
+        this(location, guests, budget, null, null, propertyType, amenities, purpose, date, List.of(), List.of());
     }
 
     public AiRequirements(
@@ -35,7 +37,21 @@ public record AiRequirements(
             String date,
             List<String> excludedTypes
     ) {
-        this(location, guests, budget, propertyType, amenities, purpose, date, List.of(), excludedTypes);
+        this(location, guests, budget, null, null, propertyType, amenities, purpose, date, List.of(), excludedTypes);
+    }
+
+    public AiRequirements(
+            String location,
+            Integer guests,
+            Integer budget,
+            String propertyType,
+            List<String> amenities,
+            String purpose,
+            String date,
+            List<String> vendorCategories,
+            List<String> excludedTypes
+    ) {
+        this(location, guests, budget, null, null, propertyType, amenities, purpose, date, vendorCategories, excludedTypes);
     }
 
     public AiRequirements {
@@ -51,6 +67,6 @@ public record AiRequirements(
     }
 
     public static AiRequirements empty() {
-        return new AiRequirements(null, null, null, null, List.of(), null, null, List.of(), List.of());
+        return new AiRequirements(null, null, null, null, null, null, List.of(), null, null, List.of(), List.of());
     }
 }

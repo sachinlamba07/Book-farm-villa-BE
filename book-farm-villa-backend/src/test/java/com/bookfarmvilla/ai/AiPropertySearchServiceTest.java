@@ -60,6 +60,39 @@ class AiPropertySearchServiceTest {
     }
 
     @Test
+    void filtersPropertiesInsideInclusiveBudgetRange() {
+        Property belowRange = property("below-budget", "Gurugram", PropertyType.FARMHOUSE, 14999);
+        Property minimum = property("minimum-budget", "Gurugram", PropertyType.FARMHOUSE, 15000);
+        Property maximum = property("maximum-budget", "Gurugram", PropertyType.FARMHOUSE, 20000);
+        Property aboveRange = property("above-budget", "Gurugram", PropertyType.FARMHOUSE, 20001);
+        when(propertyRepository.findAll(anySpecification(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(belowRange, minimum, maximum, aboveRange)));
+        when(reviewRepository.findByPropertyId(minimum.getId())).thenReturn(List.of());
+        when(reviewRepository.findByPropertyId(maximum.getId())).thenReturn(List.of());
+
+        AiPropertySearchService.PropertySearchResult result = searchService.searchPropertiesWithAlternatives(
+                new AiRequirements(
+                        "Gurugram",
+                        null,
+                        20000,
+                        15000,
+                        20000,
+                        "FARMHOUSE",
+                        List.of(),
+                        null,
+                        null,
+                        List.of(),
+                        List.of()),
+                null,
+                null);
+
+        assertEquals(List.of(), result.relaxedFilters());
+        assertEquals(
+                List.of(minimum.getId(), maximum.getId()),
+                result.properties().stream().map(item -> item.id()).toList());
+    }
+
+    @Test
     void relaxesLocationAfterBudgetIfNoPropertyMatchesInRequestedArea() {
         Property property = property("noida-farmhouse", "Noida", PropertyType.FARMHOUSE, 18000);
         when(propertyRepository.findAll(anySpecification(), any(Pageable.class)))

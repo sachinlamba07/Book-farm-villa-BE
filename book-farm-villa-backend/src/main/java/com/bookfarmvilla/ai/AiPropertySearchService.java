@@ -62,7 +62,7 @@ public class AiPropertySearchService {
         candidates = excludePropertyIds(candidates, excludedIds);
         List<Property> matches = filterProperties(candidates, requirements, true);
 
-        if (matches.isEmpty() && requirements.budget() != null) {
+        if (matches.isEmpty() && hasBudget(requirements)) {
             matches = filterProperties(candidates, requirements, false);
             if (!matches.isEmpty()) {
                 relaxedFilters.add("budget");
@@ -74,7 +74,7 @@ public class AiPropertySearchService {
             candidates = excludePropertyIds(candidates, excludedIds);
             matches = filterProperties(candidates, requirements, false);
             if (!matches.isEmpty()) {
-                if (requirements.budget() != null) {
+                if (hasBudget(requirements)) {
                     relaxedFilters.add("budget");
                 }
                 relaxedFilters.add("location");
@@ -86,7 +86,7 @@ public class AiPropertySearchService {
             candidates = excludePropertyIds(candidates, excludedIds);
             matches = filterProperties(candidates, requirements, false);
             if (!matches.isEmpty()) {
-                if (requirements.budget() != null) {
+                if (hasBudget(requirements)) {
                     relaxedFilters.add("budget");
                 }
                 if (hasText(requirements.location())) {
@@ -101,9 +101,9 @@ public class AiPropertySearchService {
                         ? property.getStartingPrice()
                         : property.getEndingPrice(),
                 Comparator.nullsLast(Comparator.naturalOrder()));
-        if (requirements.budget() != null && !relaxedFilters.isEmpty()) {
+        if (hasBudget(requirements) && !relaxedFilters.isEmpty()) {
             priceOrder = Comparator.comparing(
-                    (Property property) -> distanceFromBudget(property, requirements.budget()),
+                    (Property property) -> distanceFromBudget(property, requirements),
                     Comparator.nullsLast(Comparator.naturalOrder()));
         }
 
@@ -148,11 +148,8 @@ public class AiPropertySearchService {
         return candidates.stream()
                 .filter(property -> !isExcluded(property.getType(), requirements.excludedTypes()))
                 .filter(property -> matchesAmenities(property, wantedAmenities))
-                .filter(property -> !enforceBudget || requirements.budget() == null
-                        || priceFitsBudget(
-                                property.getStartingPrice(),
-                                property.getEndingPrice(),
-                                requirements.budget()))
+                .filter(property -> !enforceBudget || !hasBudget(requirements)
+                        || priceFitsBudget(property, requirements))
                 .toList();
     }
 
@@ -173,13 +170,35 @@ public class AiPropertySearchService {
                 .toList();
     }
 
-    private java.math.BigDecimal distanceFromBudget(Property property, int budget) {
+    private boolean hasBudget(AiRequirements requirements) {
+        return requirements.budget() != null
+                || requirements.budgetMin() != null
+                || requirements.budgetMax() != null;
+    }
+
+    private java.math.BigDecimal distanceFromBudget(Property property, AiRequirements requirements) {
         java.math.BigDecimal price = property.getStartingPrice() != null
                 ? property.getStartingPrice()
                 : property.getEndingPrice();
-        return price == null
+        if (price == null) return null;
+
+        java.math.BigDecimal minimum = requirements.budgetMin() == null
                 ? null
-                : price.subtract(java.math.BigDecimal.valueOf(budget)).abs();
+                : java.math.BigDecimal.valueOf(requirements.budgetMin());
+        Integer maximumValue = requirements.budgetMax() != null
+                ? requirements.budgetMax()
+                : requirements.budget();
+        java.math.BigDecimal maximum = maximumValue == null
+                ? null
+                : java.math.BigDecimal.valueOf(maximumValue);
+
+        if (minimum != null && price.compareTo(minimum) < 0) {
+            return minimum.subtract(price);
+        }
+        if (maximum != null && price.compareTo(maximum) > 0) {
+            return price.subtract(maximum);
+        }
+        return java.math.BigDecimal.ZERO;
     }
 
     private Double distanceKm(double latitude, double longitude, Property property) {
@@ -379,16 +398,21 @@ public class AiPropertySearchService {
         return value != null && !value.isBlank();
     }
 
-    private boolean priceFitsBudget(
-            java.math.BigDecimal startingPrice,
-            java.math.BigDecimal endingPrice,
-            int budget) {
-        java.math.BigDecimal maximumKnownPrice = endingPrice != null ? endingPrice : startingPrice;
-        if (startingPrice != null) {
-            return startingPrice.compareTo(java.math.BigDecimal.valueOf(budget)) <= 0;
+    private boolean priceFitsBudget(Property property, AiRequirements requirements) {
+        java.math.BigDecimal price = property.getStartingPrice() != null
+                ? property.getStartingPrice()
+                : property.getEndingPrice();
+        if (price == null) return false;
+
+        if (requirements.budgetMin() != null
+                && price.compareTo(java.math.BigDecimal.valueOf(requirements.budgetMin())) < 0) {
+            return false;
         }
-        return maximumKnownPrice != null
-                && maximumKnownPrice.compareTo(java.math.BigDecimal.valueOf(budget)) <= 0;
+        Integer maximum = requirements.budgetMax() != null
+                ? requirements.budgetMax()
+                : requirements.budget();
+        return maximum == null
+                || price.compareTo(java.math.BigDecimal.valueOf(maximum)) <= 0;
     }
 
     public record PropertySearchResult(
