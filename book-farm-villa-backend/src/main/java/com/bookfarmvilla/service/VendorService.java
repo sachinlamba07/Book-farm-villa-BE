@@ -22,7 +22,9 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class VendorService {
@@ -48,6 +50,18 @@ public class VendorService {
 
         Page<Vendor> page = vendorRepository.findAll(spec, pageable);
         return PageResponse.from(page.map(this::toResponse));
+    }
+
+    @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "vendorSearch", key = "'active-counts'")
+    public Map<VendorCategory, Long> countActiveByCategory() {
+        Map<VendorCategory, Long> counts = new EnumMap<>(VendorCategory.class);
+        for (VendorCategory category : VendorCategory.values()) {
+            counts.put(category, 0L);
+        }
+        vendorRepository.countActiveByCategory()
+                .forEach(row -> counts.put(row.getCategory(), row.getCount()));
+        return counts;
     }
 
     @Transactional(readOnly = true)

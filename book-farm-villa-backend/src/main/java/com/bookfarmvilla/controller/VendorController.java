@@ -20,6 +20,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @RestController
@@ -59,6 +60,12 @@ public class VendorController {
     @GetMapping("/cities")
     public ResponseEntity<List<String>> cities() {
         return ResponseEntity.ok(vendorService.findActiveCities());
+    }
+
+    /** Counts of ACTIVE vendors grouped by category. */
+    @GetMapping("/active-counts")
+    public ResponseEntity<Map<VendorCategory, Long>> activeCounts() {
+        return ResponseEntity.ok(vendorService.countActiveByCategory());
     }
 
     @GetMapping("/{id}")
